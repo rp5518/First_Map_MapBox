@@ -1,0 +1,107 @@
+[
+    {
+        "first": "DOUGLAS",
+        "last": "SANDERS",
+        "address": "13016 S 44TH PL, 85044",
+        "lng": -111.988598,
+        "lat": 33.327746
+    },
+    {
+        "first": "DONNA",
+        "last": "NANNI",
+        "address": "13029 S 44TH PL, 85044",
+        "lng": -111.988105,
+        "lat": 33.327178
+    },
+    {
+        "first": "PAMELA",
+        "last": "KEATING",
+        "address": "13019 S 45TH ST, 85044",
+        "lng": -111.986374,
+        "lat": 33.327257
+    },
+    {
+        "first": "HUEBERT",
+        "last": "GIPSON",
+        "address": "13022 S 45TH PL, 85044",
+        "lng": -111.986037,
+        "lat": 33.327146
+    },
+    {
+        "first": "RITA",
+        "last": "MANNING",
+        "address": "13040 S 46TH ST, 85044",
+        "lng": -111.985281,
+        "lat": 33.326358
+    },
+    {
+        "first": "SANDRA",
+        "last": "BOS",
+        "address": "13046 S 46TH PL, 85044",
+        "lng": -111.984742,
+        "lat": 33.325785
+    },
+    {
+        "first": "ARTHUR",
+        "last": "IRMER",
+        "address": "13025 S 46TH WAY, 85044",
+        "lng": -111.983263,
+        "lat": 33.325946
+    },
+    {
+        "first": "SUZANNE",
+        "last": "THOMPSON",
+        "address": "13036 S 46TH WAY, 85044",
+        "lng": -111.983783,
+        "lat": 33.325643
+    },
+    {
+        "first": "MICHELLE",
+        "last": "VUKOV",
+        "address": "13044 S 46TH WAY, 85044",
+        "lng": -111.983888,
+        "lat": 33.325404
+    },
+    {
+        "first": "KENNETH",
+        "last": "CAMERON",
+        "address": "13030 S 47TH ST, 85044",
+        "lng": -111.982915,
+        "lat": 33.325813
+    },
+    {
+        "first": "SUSAN",
+        "last": "PETERS",
+        "address": "13042 S 47TH ST, 85044",
+        "lng": -111.982947,
+        "lat": 33.325335
+    },
+    {
+        "first": "NICOLE",
+        "last": "ALEXANDER",
+        "address": "13426 S 46TH WAY, 85044",
+        "lng": -111.984043,
+        "lat": 33.324678
+    },
+    {
+        "first": "KAREN",
+        "last": "CLAYTON",
+        "address": "4412 E BANNOCK ST, 85044",
+        "lng": -111.986521,
+        "lat": 33.331042
+    },
+    {
+        "first": "JENNIFER",
+        "last": "HOAG",
+        "address": "4423 E BANNOCK ST, 85044",
+        "lng": -111.986176,
+        "lat": 33.330558
+    },
+    {
+        "first": "LORI",
+        "last": "HENAUGHAN",
+        "address": "4426 E BANNOCK ST, 85044",
+        "lng": -111.985871,
+        "lat": 33.330888
+    }
+]

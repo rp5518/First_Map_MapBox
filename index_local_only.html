@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Mapbox Markers from JSON</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.css" type="text/css">
+    <style>
+       html,body { margin: 0; padding: 0; height: 100%; }
+        #btn-spin {
+            font: bold 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            background-color: #3386c0;
+            color: #fff;
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            z-index: 2;
+            border: none;
+            width: 200px;
+            margin-left: -100px;
+            display: block;
+            cursor: pointer;
+            padding: 10px 20px;
+            border-radius: 3px;
+        }
+        #btn-spin:hover {
+            background-color: #4ea0da;
+        }
+        #map {
+            width: 100%;
+            flex-grow: 1;
+            height: 100%;
+        }
+        #container {
+            display: flex;
+            height: 100%;
+        }
+        #sidebar {
+            width: fit-content;
+            flex-shrink: 0;
+            height: 100%;
+            padding: 3px;
+            background-color: rgb(229, 255, 0);
+        }
+        button {
+            display: block;
+            margin-bottom: 10px;
+            padding: 10px;
+            width: 150px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="sidebar">
+            <button id="reset-map">Reset Map</button>
+            <button id="zoom-to-markers">Zoom to Markers</button>
+        </div>
+        <div id="map"></div>
+        <button id="btn-spin">Pause rotation</button>
+    </div>
+    <script>
+        // ADD YOUR ACCESS TOKEN FROM https://account.mapbox.com
+        const INITIAL_CENTER = [-112, 33.3]; // Centered on the Ahwhatukee Foothills
+        const INITIAL_ZOOM = 1.5; // Start zoomed out for globe effect
+        mapboxgl.accessToken = 'pk.eyJ1Ijoid2pncnA1NTE4IiwiYSI6ImNtZmxxMm01MzA3c3oyaXExMWMxamVqZWoifQ.u2vTBRK2tHKi1HwI2JkhfA';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            zoom: INITIAL_ZOOM,
+            center: INITIAL_CENTER,
+            projection: 'globe' // Enable globe view
+        });
+
+        // Add the geocoder control to the map.
+        map.addControl(
+            new MapboxGeocoder({
+                accessToken: mapboxgl.accessToken,
+                useBrowserFocus: true,
+                mapboxgl: mapboxgl,
+                limit: 10,
+            })
+        );
+
+        // Store marker references and visited state
+        const markerObjects = [];
+
+        // Function to create a custom marker element with a visible numeric label
+        function createMarkerElement(label, visited) {
+            const el = document.createElement('div');
+            el.style.backgroundColor = visited ? '#00B7EB' : '#FFFF00'; // Initial: yellow, Visited: blue
+            el.style.width = '28px';
+            el.style.height = '28px';
+            el.style.borderRadius = '50%';
+            el.style.display = 'flex';
+            el.style.alignItems = 'center';
+            el.style.justifyContent = 'center';
+            el.style.color = 'black';
+            el.style.fontWeight = 'bold';
+            el.style.fontSize = '16px';
+            el.style.border = '2px solid black';
+            el.textContent = label; // Set the numeric label
+            return el;
+        }
+
+        // Load markers from markers.json and add to map with numeric labels
+        fetch('markers.json')
+            .then(response => response.json())
+            .then(markers => {
+                markers.forEach((marker, idx) => {
+                    let visited = false;
+                    const markerEl = createMarkerElement(idx + 1, visited);
+
+                    const popupContent = document.createElement('div');
+                    popupContent.innerHTML = `
+                        <strong>${marker.first} ${marker.last}</strong><br>
+                        ${marker.address}<br>
+                        <label>
+                            <input type="checkbox" id="visited-${idx}"> Dropped Literature
+                        </label><br>
+                        <label>
+                            <input type="checkbox" id="friendly-${idx}"> Friendly
+                        </label><br>
+                        <label>
+                            <input type="checkbox" id="notfriendly-${idx}"> Not Friendly
+                        </label>
+                    `;
+
+                    const popup = new mapboxgl.Popup({ offset: 25 }).setDOMContent(popupContent);
+
+                    const mapMarker = new mapboxgl.Marker(markerEl)
+                        .setLngLat([marker.lng, marker.lat])
+                        .setPopup(popup)
+                        .addTo(map);
+
+                    markerObjects.push({ marker, idx, mapMarker, markerEl });
+
+                    // Checkbox event logic
+                    const visitedBox = popupContent.querySelector(`#visited-${idx}`);
+                    const friendlyBox = popupContent.querySelector(`#friendly-${idx}`);
+                    const notFriendlyBox = popupContent.querySelector(`#notfriendly-${idx}`);
+
+                    function handleExclusiveCheck(selectedBox) {
+                        // Uncheck all boxes except the one just clicked
+                        [visitedBox, friendlyBox, notFriendlyBox].forEach(box => {
+                            if (box !== selectedBox) box.checked = false;
+                        });
+                        // Update marker color
+                        if (friendlyBox.checked) {
+                            markerEl.style.backgroundColor = '#32CD32'; // Friendly: green
+                        } else if (notFriendlyBox.checked) {
+                            markerEl.style.backgroundColor = '#FF4500'; // Not Friendly: orange-red
+                        } else if (visitedBox.checked) {
+                            markerEl.style.backgroundColor = '#00B7EB'; // Dropped Literature: blue
+                        } else {
+                            markerEl.style.backgroundColor = '#FFFF00'; // Default: yellow
+                        }
+                    }
+
+                    // Attach event listeners for exclusive selection
+                    visitedBox.addEventListener('change', () => handleExclusiveCheck(visitedBox));
+                    friendlyBox.addEventListener('change', () => handleExclusiveCheck(friendlyBox));
+                    notFriendlyBox.addEventListener('change', () => handleExclusiveCheck(notFriendlyBox));
+                });
+            })
+            .catch(error => {
+                console.error('Error loading markers.json:', error);
+            });
+
+        // Globe spinning logic
+        let spinning = true;
+        let spinSpeed = 0.5; // degrees per frame
+        let spinAnimationId = null;
+
+        function spinGlobe() {
+            if (!spinning) return;
+            const center = map.getCenter();
+            map.easeTo({
+                center: [center.lng + spinSpeed, center.lat],
+                duration: 50,
+                easing: t => t
+            });
+            spinAnimationId = requestAnimationFrame(spinGlobe);
+        }
+
+        // Start spinning on style load
+        map.on('style.load', () => {
+            spinning = true;
+            spinGlobe();
+        });
+
+        // Pause spinning when user interacts with the map
+        function pauseSpinning() {
+            spinning = false;
+            document.getElementById('btn-spin').textContent = 'Resume rotation';
+            if (spinAnimationId) {
+                cancelAnimationFrame(spinAnimationId);
+                spinAnimationId = null;
+            }
+        }
+
+        map.on('mousedown', pauseSpinning);
+        map.on('wheel', pauseSpinning);
+        map.on('touchstart', pauseSpinning);
+
+        // Spin button toggles spinning
+        document.getElementById('btn-spin').addEventListener('click', () => {
+            spinning = !spinning;
+            document.getElementById('btn-spin').textContent = spinning ? 'Pause rotation' : 'Resume rotation';
+            if (spinning) spinGlobe();
+            else if (spinAnimationId) {
+                cancelAnimationFrame(spinAnimationId);
+                spinAnimationId = null;
+            }
+        });
+
+        // Reset the Map View
+        document.querySelector('#reset-map').addEventListener('click', () => {
+            pauseSpinning();
+            map.flyTo({
+                center: INITIAL_CENTER,
+                zoom: INITIAL_ZOOM,
+                pitch: 0
+            })
+        });
+
+        // Zoom to Markers
+        document.getElementById('zoom-to-markers').addEventListener('click', () => {
+            pauseSpinning();
+            if (markerObjects.length === 0) return;
+            const bounds = new mapboxgl.LngLatBounds();
+            markerObjects.forEach(obj => {
+                bounds.extend([obj.marker.lng, obj.marker.lat]);
+            });
+            map.fitBounds(bounds, {
+                padding: 50,
+                maxZoom: 16 // Prevent zooming in too close
+            });
+        });
+
+        // Show/hide spin button based on zoom level
+        function updateSpinButtonVisibility() {
+            const spinBtn = document.getElementById('btn-spin');
+            if (map.getZoom() < 2.5) {
+                spinBtn.style.display = 'block';
+            } else {
+                spinBtn.style.display = 'none';
+            }
+        }
+
+        // Initial check
+        map.on('load', updateSpinButtonVisibility);
+
+        // Update on zoom
+        map.on('zoom', updateSpinButtonVisibility);
+    </script>
+</body>
+</html>
