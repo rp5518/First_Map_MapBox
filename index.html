@@ -106,6 +106,24 @@
             return el;
         }
 
+        // Place this BEFORE fetch('markers.json')
+        function setMarkerShape(markerEl, isStar, label) {
+            if (isStar) {
+                markerEl.style.backgroundColor = markerEl.style.backgroundColor || '#FFFF00';
+                markerEl.style.width = '32px';
+                markerEl.style.height = '32px';
+                markerEl.style.borderRadius = '0';
+                markerEl.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+                markerEl.textContent = label;
+            } else {
+                markerEl.style.width = '28px';
+                markerEl.style.height = '28px';
+                markerEl.style.borderRadius = '50%';
+                markerEl.style.clipPath = '';
+                markerEl.textContent = label;
+            }
+        }
+
         // Load markers from markers.json and add to map with numeric labels
         fetch('markers.json')
             .then(response => response.json())
@@ -220,6 +238,13 @@
                     visitedBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, visitedBox));
                     friendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, friendlyBox));
                     notFriendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, notFriendlyBox));
+
+                    // Initialize marker state in Firestore if it doesn't exist
+                    db.collection('markerStates').doc(String(idx)).get().then(doc => {
+                        if (!doc.exists) {
+                            db.collection('markerStates').doc(String(idx)).set({ state: '', flag: false });
+                        }
+                    });
                 });
             })
             .catch(error => {
@@ -347,6 +372,7 @@
                 if (flag) setMarkerShape(obj.markerEl, true, idx + 1);
                 else setMarkerShape(obj.markerEl, false, idx + 1);
             });
+            console.log('Firestore update received', snapshot.docs.map(doc => doc.data()));
         });
     </script>
 </body>
