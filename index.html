@@ -10,26 +10,7 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.css" type="text/css">
     <style>
-       html,body { margin: 0; padding: 0; height: 100%; }
-        #btn-spin {
-            font: bold 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
-            background-color: #3386c0;
-            color: #fff;
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            z-index: 2;
-            border: none;
-            width: 200px;
-            margin-left: -100px;
-            display: block;
-            cursor: pointer;
-            padding: 10px 20px;
-            border-radius: 3px;
-        }
-        #btn-spin:hover {
-            background-color: #4ea0da;
-        }
+        html,body { margin: 0; padding: 0; height: 100%; }
         #map {
             width: 100%;
             flex-grow: 1;
@@ -57,7 +38,6 @@
         <button id="zoom-to-markers" style="position:absolute;top:60px;left:20px;z-index:2;width:150px;padding:10px;background-color:#fff;">Zoom to Markers</button>
         <button id="zoom-to-include-me" style="position:absolute;top:100px;left:20px;z-index:2;width:150px;padding:10px;background-color:#fff;">Zoom to Include Me</button>
         <div id="map"></div>
-        <button id="btn-spin">Pause rotation</button>
     </div>
     <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
@@ -364,7 +344,6 @@
         // Pause spinning when user interacts with the map
         function pauseSpinning() {
             spinning = false;
-            document.getElementById('btn-spin').textContent = 'Resume rotation';
             if (spinAnimationId) {
                 cancelAnimationFrame(spinAnimationId);
                 spinAnimationId = null;
@@ -374,17 +353,6 @@
         map.on('mousedown', pauseSpinning);
         map.on('wheel', pauseSpinning);
         map.on('touchstart', pauseSpinning);
-
-        // Spin button toggles spinning
-        document.getElementById('btn-spin').addEventListener('click', () => {
-            spinning = !spinning;
-            document.getElementById('btn-spin').textContent = spinning ? 'Pause rotation' : 'Resume rotation';
-            if (spinning) spinGlobe();
-            else if (spinAnimationId) {
-                cancelAnimationFrame(spinAnimationId);
-                spinAnimationId = null;
-            }
-        });
 
         // Zoom to Markers
         document.getElementById('zoom-to-markers').addEventListener('click', () => {
@@ -423,22 +391,6 @@
                 maxZoom: 16 // Prevent zooming in too close
             });
         });
-
-        // Show/hide spin button based on zoom level
-        function updateSpinButtonVisibility() {
-            const spinBtn = document.getElementById('btn-spin');
-            if (map.getZoom() < 2.5) {
-                spinBtn.style.display = 'block';
-            } else {
-                spinBtn.style.display = 'none';
-            }
-        }
-
-        // Initial check
-        map.on('load', updateSpinButtonVisibility);
-
-        // Update on zoom
-        map.on('zoom', updateSpinButtonVisibility);
 
         // Firebase configuration
         const firebaseConfig = {
