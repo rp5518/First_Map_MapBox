@@ -54,8 +54,8 @@
 </head>
 <body>
     <div id="container">
-        <button id="reset-map" style="position:absolute;top:20px;left:20px;z-index:2;width:150px;padding:10px;background-color:#fff;">Reset Map</button>
         <button id="zoom-to-markers" style="position:absolute;top:60px;left:20px;z-index:2;width:150px;padding:10px;background-color:#fff;">Zoom to Markers</button>
+        <button id="zoom-to-include-me" style="position:absolute;top:100px;left:20px;z-index:2;width:150px;padding:10px;background-color:#fff;">Zoom to Include Me</button>
         <div id="map"></div>
         <button id="btn-spin">Pause rotation</button>
     </div>
@@ -85,6 +85,88 @@
             })
         );
 
+        // Add geolocation control and tracking
+        map.addControl(new mapboxgl.GeolocateControl({
+            positionOptions: {
+                enableHighAccuracy: true
+            },
+            trackUserLocation: true,
+            showUserHeading: true,
+            showAccuracyCircle: true
+        }));
+
+        // Variable to store the current location marker
+        let currentLocationMarker = null;
+
+        // Function to create a custom current location marker
+        function createCurrentLocationMarker() {
+            const el = document.createElement('div');
+            el.style.backgroundColor = '#FF0000'; // Red color for current location
+            el.style.width = '20px';
+            el.style.height = '20px';
+            el.style.borderRadius = '50%';
+            el.style.display = 'flex';
+            el.style.alignItems = 'center';
+            el.style.justifyContent = 'center';
+            el.style.color = 'white';
+            el.style.fontWeight = 'bold';
+            el.style.fontSize = '12px';
+            el.style.border = '3px solid white';
+            el.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+            el.textContent = '📍';
+            return el;
+        }
+
+        // Track user's current location
+        function trackCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(
+                    (position) => {
+                        const { longitude, latitude } = position.coords;
+                        
+                        // Remove existing current location marker
+                        if (currentLocationMarker) {
+                            currentLocationMarker.remove();
+                        }
+                        
+                        // Create new current location marker
+                        const locationMarkerEl = createCurrentLocationMarker();
+                        
+                        const popup = new mapboxgl.Popup({ offset: 25 })
+                            .setHTML(`
+                                <strong>Your Current Location</strong><br>
+                                Lat: ${latitude.toFixed(6)}<br>
+                                Lng: ${longitude.toFixed(6)}<br>
+                                <small>Accuracy: ±${position.coords.accuracy}m</small>
+                            `);
+                        
+                        currentLocationMarker = new mapboxgl.Marker(locationMarkerEl)
+                            .setLngLat([longitude, latitude])
+                            .setPopup(popup)
+                            .addTo(map);
+                        
+                        console.log('Location updated:', latitude, longitude);
+                    },
+                    (error) => {
+                        console.error('Geolocation error:', error);
+                        alert('Unable to retrieve your location. Please enable location services.');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 60000 // Cache location for 1 minute
+                    }
+                );
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        }
+
+        // Start tracking location when map loads
+        map.on('load', () => {
+            trackCurrentLocation();
+        });
+
         // Store marker references and visited state
         const markerObjects = [];
 
@@ -110,9 +192,10 @@
         function setMarkerShape(markerEl, isStar, label) {
             if (isStar) {
                 markerEl.style.backgroundColor = markerEl.style.backgroundColor || '#FFFF00';
-                markerEl.style.width = '32px';
-                markerEl.style.height = '32px';
+                markerEl.style.width = '42px';
+                markerEl.style.height = '42px';
                 markerEl.style.borderRadius = '0';
+                markerEl.style.fontSize = '16px';
                 markerEl.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
                 markerEl.textContent = label;
             } else {
@@ -120,6 +203,8 @@
                 markerEl.style.height = '28px';
                 markerEl.style.borderRadius = '50%';
                 markerEl.style.clipPath = '';
+                markerEl.style.border = '2px solid black';
+                markerEl.style.fontSize = '16px';
                 markerEl.textContent = label;
             }
         }
@@ -172,9 +257,10 @@
                     function setMarkerShape(markerEl, isStar, label) {
                         if (isStar) {
                             markerEl.style.backgroundColor = markerEl.style.backgroundColor || '#FFFF00';
-                            markerEl.style.width = '32px';
-                            markerEl.style.height = '32px';
+                            markerEl.style.width = '42px';
+                            markerEl.style.height = '42px';
                             markerEl.style.borderRadius = '0';
+                            markerEl.style.fontSize = '16px';
                             markerEl.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
                             markerEl.textContent = label;
                         } else {
@@ -182,6 +268,8 @@
                             markerEl.style.height = '28px';
                             markerEl.style.borderRadius = '50%';
                             markerEl.style.clipPath = '';
+                            markerEl.style.border = '2px solid black';
+                            markerEl.style.fontSize = '16px';
                             markerEl.textContent = label;
                         }
                     }
@@ -298,16 +386,6 @@
             }
         });
 
-        // Reset the Map View
-        document.querySelector('#reset-map').addEventListener('click', () => {
-            pauseSpinning();
-            map.flyTo({
-                center: INITIAL_CENTER,
-                zoom: INITIAL_ZOOM,
-                pitch: 0
-            })
-        });
-
         // Zoom to Markers
         document.getElementById('zoom-to-markers').addEventListener('click', () => {
             pauseSpinning();
@@ -316,6 +394,30 @@
             markerObjects.forEach(obj => {
                 bounds.extend([obj.marker.lng, obj.marker.lat]);
             });
+            map.fitBounds(bounds, {
+                padding: 50,
+                maxZoom: 16 // Prevent zooming in too close
+            });
+        });
+
+        // Zoom to Include Me
+        document.getElementById('zoom-to-include-me').addEventListener('click', () => {
+            pauseSpinning();
+            if (markerObjects.length === 0 && !currentLocationMarker) return;
+            
+            const bounds = new mapboxgl.LngLatBounds();
+            
+            // Add all marker locations to bounds
+            markerObjects.forEach(obj => {
+                bounds.extend([obj.marker.lng, obj.marker.lat]);
+            });
+            
+            // Add current location to bounds if available
+            if (currentLocationMarker) {
+                const currentLngLat = currentLocationMarker.getLngLat();
+                bounds.extend([currentLngLat.lng, currentLngLat.lat]);
+            }
+            
             map.fitBounds(bounds, {
                 padding: 50,
                 maxZoom: 16 // Prevent zooming in too close
