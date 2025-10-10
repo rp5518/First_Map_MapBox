@@ -215,6 +215,26 @@
                         </label><br>
                         <label>
                             <input type="checkbox" id="flag-${idx}"> American Flag
+                        </label><br>
+                        <label style="display: block; margin-top: 10px;">
+                            <strong>Notes:</strong><br>
+                            <textarea id="notes-${idx}" placeholder="Add new note..." 
+                                     style="width: 200px; height: 60px; margin-top: 5px; 
+                                            resize: vertical; font-family: Arial, sans-serif; 
+                                            font-size: 12px; padding: 5px;"></textarea><br>
+                            <button type="button" id="add-note-${idx}" 
+                                   style="margin-top: 5px; padding: 5px 10px; 
+                                          background-color: #4CAF50; color: white; 
+                                          border: none; border-radius: 3px; cursor: pointer;">
+                                Add Note
+                            </button>
+                            <div id="notes-history-${idx}" 
+                                 style="margin-top: 10px; max-height: 150px; 
+                                        overflow-y: auto; border: 1px solid #ddd; 
+                                        padding: 5px; background-color: #f9f9f9; 
+                                        font-size: 11px;">
+                                <em>No notes yet</em>
+                            </div>
                         </label>
                     `;
 
@@ -232,6 +252,58 @@
                     const notFriendlyBox = popupContent.querySelector(`#notfriendly-${idx}`);
                     const resetBox = popupContent.querySelector(`#reset-${idx}`);
                     const flagBox = popupContent.querySelector(`#flag-${idx}`);
+                    const notesBox = popupContent.querySelector(`#notes-${idx}`);
+                    const addNoteBtn = popupContent.querySelector(`#add-note-${idx}`);
+                    const notesHistory = popupContent.querySelector(`#notes-history-${idx}`);
+
+                    // Functions for timestamped notes
+                    function addTimestampedNote(idx, noteText) {
+                        if (!noteText.trim()) return;
+                        
+                        const timestamp = new Date().toLocaleString();
+                        const noteEntry = {
+                            text: noteText.trim(),
+                            timestamp: timestamp,
+                            id: Date.now() // Unique ID for each note
+                        };
+                        
+                        // Get existing notes from Firebase
+                        db.collection('markerStates').doc(String(idx)).get().then(doc => {
+                            const data = doc.data() || {};
+                            const existingNotes = data.notesHistory || [];
+                            const updatedNotes = [...existingNotes, noteEntry];
+                            
+                            // Update Firebase with new note
+                            db.collection('markerStates').doc(String(idx)).update({
+                                notesHistory: updatedNotes
+                            });
+                            
+                            // Clear the input
+                            notesBox.value = '';
+                        });
+                    }
+                    
+                    function displayNotesHistory(idx, notesHistoryArray) {
+                        const historyDiv = popupContent.querySelector(`#notes-history-${idx}`);
+                        if (!notesHistoryArray || notesHistoryArray.length === 0) {
+                            historyDiv.innerHTML = '<em>No notes yet</em>';
+                            return;
+                        }
+                        
+                        historyDiv.innerHTML = notesHistoryArray
+                            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Most recent first
+                            .map(note => `
+                                <div style="margin-bottom: 8px; padding: 5px; 
+                                           background-color: white; border-left: 3px solid #4CAF50;">
+                                    <div style="font-weight: bold; color: #666; font-size: 10px;">
+                                        ${note.timestamp}
+                                    </div>
+                                    <div style="margin-top: 2px;">
+                                        ${note.text}
+                                    </div>
+                                </div>
+                            `).join('');
+                    }
 
                     // Move these functions OUTSIDE the forEach loop
                     function setMarkerShape(markerEl, isStar, label) {
@@ -276,7 +348,10 @@
                         }
                         setMarkerShape(markerEl, flagBox.checked, idx + 1);
 
-                        db.collection('markerStates').doc(String(idx)).set({ state, flag: flagBox.checked });
+                        db.collection('markerStates').doc(String(idx)).set({ 
+                            state, 
+                            flag: flagBox.checked
+                        }, { merge: true });
                     }
 
                     // Reset logic
@@ -286,8 +361,13 @@
                             friendlyBox.checked = false;
                             notFriendlyBox.checked = false;
                             markerEl.style.backgroundColor = '#FFFF00';
+                            notesBox.value = '';
                             setMarkerShape(markerEl, flagBox.checked, idx + 1);
-                            db.collection('markerStates').doc(String(idx)).set({ state: '', flag: flagBox.checked });
+                            db.collection('markerStates').doc(String(idx)).set({ 
+                                state: '', 
+                                flag: flagBox.checked,
+                                notesHistory: [] // Clear all notes history
+                            }, { merge: true });
                             resetBox.checked = false; // Uncheck after reset
                         }
                     });
@@ -299,7 +379,10 @@
                         if (friendlyBox.checked) state = 'friendly';
                         else if (notFriendlyBox.checked) state = 'notfriendly';
                         else if (visitedBox.checked) state = 'visited';
-                        db.collection('markerStates').doc(String(idx)).set({ state, flag: flagBox.checked });
+                        db.collection('markerStates').doc(String(idx)).set({ 
+                            state, 
+                            flag: flagBox.checked
+                        }, { merge: true });
                     });
 
                     // Attach event listeners for exclusive selection
@@ -310,7 +393,24 @@
                     // Initialize marker state in Firestore if it doesn't exist
                     db.collection('markerStates').doc(String(idx)).get().then(doc => {
                         if (!doc.exists) {
-                            db.collection('markerStates').doc(String(idx)).set({ state: '', flag: false });
+                            db.collection('markerStates').doc(String(idx)).set({ 
+                                state: '', 
+                                flag: false, 
+                                notesHistory: []
+                            });
+                        }
+                    });
+
+                    // Add note button functionality
+                    addNoteBtn.addEventListener('click', () => {
+                        addTimestampedNote(idx, notesBox.value);
+                    });
+                    
+                    // Allow Enter key to add note
+                    notesBox.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            addTimestampedNote(idx, notesBox.value);
                         }
                     });
                 });
@@ -412,6 +512,7 @@
                 const data = doc.data();
                 const state = data.state;
                 const flag = data.flag;
+                const notesHistory = data.notesHistory || [];
                 const obj = markerObjects.find(o => o.idx === idx);
                 if (!obj) return;
                 obj.popupContent.querySelector(`#friendly-${idx}`).checked = state === 'friendly';
@@ -419,9 +520,30 @@
                 obj.popupContent.querySelector(`#visited-${idx}`).checked = state === 'visited';
                 obj.popupContent.querySelector(`#flag-${idx}`).checked = !!flag;
                 obj.popupContent.querySelector(`#reset-${idx}`).checked = false;
+                
+                // Display notes history
+                const historyDiv = obj.popupContent.querySelector(`#notes-history-${idx}`);
+                if (!notesHistory || notesHistory.length === 0) {
+                    historyDiv.innerHTML = '<em>No notes yet</em>';
+                } else {
+                    historyDiv.innerHTML = notesHistory
+                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                        .map(note => `
+                            <div style="margin-bottom: 8px; padding: 5px; 
+                                       background-color: white; border-left: 3px solid #4CAF50;">
+                                <div style="font-weight: bold; color: #666; font-size: 10px;">
+                                    ${note.timestamp}
+                                </div>
+                                <div style="margin-top: 2px;">
+                                    ${note.text}
+                                </div>
+                            </div>
+                        `).join('');
+                }
+                
                 if (state === 'friendly') obj.markerEl.style.backgroundColor = '#32CD32';
                 else if (state === 'notfriendly') obj.markerEl.style.backgroundColor = '#FF4500';
-                else if (state === 'visited') obj.markerEl.style.backgroundColor = '#B39DDB'; // Dropped Literature: softer purple
+                else if (state === 'visited') obj.markerEl.style.backgroundColor = '#B39DDB';
                 else obj.markerEl.style.backgroundColor = '#FFFF00';
                 if (flag) setMarkerShape(obj.markerEl, true, idx + 1);
                 else setMarkerShape(obj.markerEl, false, idx + 1);
