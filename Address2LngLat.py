@@ -1,3 +1,4 @@
+# %%
 import pandas as pd
 import requests
 import time
@@ -23,7 +24,10 @@ def geocode_address(address, token):
     return None
 
 # Get file path from user
-file_path = input("Please enter the full path to your Excel file: ").strip().strip('"')
+prompt_1 = "Enter the Full Path to an Excel File in the Completed_Walk_Lists Directory: "
+prompt_1 += "Copy as Path and Paste Here: "
+file_path = input(prompt_1)
+file_path = file_path.strip('"')  # remove quotations
 
 # Read Excel file
 df = pd.read_excel(file_path)
