@@ -1,7 +1,8 @@
-# %% Address to LngLat using Mapbox Geocoding API
 import pandas as pd
 import requests
 import time
+import json
+import os
 
 MAPBOX_TOKEN = 'pk.eyJ1Ijoid2pncnA1NTE4IiwiYSI6ImNtZmxxMm01MzA3c3oyaXExMWMxamVqZWoifQ.u2vTBRK2tHKi1HwI2JkhfA';
 
@@ -21,8 +22,12 @@ def geocode_address(address, token):
         return coords  # [lng, lat]
     return None
 
-# Read Excel
-df = pd.read_excel("C:\\Users\\wjg\\Python_Stuff\\Completed_Walk_Lists\\LD12_Hard_REP_EXAMPLE_approx_tsp_1.xlsx")
+# Get file path from user
+file_path = input("Please enter the full path to your Excel file: ").strip().strip('"')
+
+# Read Excel file
+df = pd.read_excel(file_path)
+print(f"Loaded {len(df)} rows from Excel file")
 
 # Geocode and collect results
 results = []
@@ -36,9 +41,21 @@ for idx, row in df.iterrows():
             'lng': coords[0],
             'lat': coords[1]
         })
+        print(f"Geocoded: {row['FirstName']} {row['LastName']}")
+    else:
+        print(f"Failed: {row['CompleteAddress']}")
     time.sleep(0.2)  # Respect Mapbox rate limits
 
 # Export to JS array or GeoJSON
 import json
-with open('markers.json', 'w') as f:
+import os
+
+# Get the directory where this script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Create the full path to markers.json in the same directory as this script
+output_file = os.path.join(script_dir, 'markers.json')
+
+with open(output_file, 'w') as f:
     json.dump(results, f)
+
+print(f"markers.json created successfully at: {output_file}")

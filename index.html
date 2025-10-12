@@ -148,7 +148,7 @@
         });
 
         // Store marker references and visited state
-        const markerObjects = [];
+        let markerObjects = [];
 
         // Function to create a custom marker element with a visible numeric label
         function createMarkerElement(label) {
@@ -193,13 +193,44 @@
         fetch('markers.json')
             .then(response => response.json())
             .then(markers => {
-                markers.forEach((marker, idx) => {
-                    let visited = false;
+                console.log('Loading new markers, clearing old Firebase data...');
+                
+                // Clear Firebase data first for fresh start
+                db.collection('markerStates').get().then(snapshot => {
+                    const batch = db.batch();
+                    snapshot.docs.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    return batch.commit();
+                }).then(() => {
+                    console.log('Firebase data cleared, loading markers...');
+                    
+                    // Clear existing markers
+                    markerObjects.forEach(obj => {
+                        if (obj.marker) obj.marker.remove();
+                    });
+                    markerObjects = [];
+                
+                    markers.forEach((marker, idx) => {
                     const markerEl = createMarkerElement(idx + 1);
 
                     const popupContent = document.createElement('div');
+                    
+                    // Handle comma-separated names
+                    const firstNames = marker.first.split(',').map(name => name.trim());
+                    const lastNames = marker.last.split(',').map(name => name.trim());
+                    
+                    // Create name pairs (first + last)
+                    let nameLines = '';
+                    const maxNames = Math.max(firstNames.length, lastNames.length);
+                    for (let i = 0; i < maxNames; i++) {
+                        const firstName = firstNames[i] || '';
+                        const lastName = lastNames[i] || '';
+                        nameLines += `<strong>${firstName} ${lastName}</strong><br>`;
+                    }
+                    
                     popupContent.innerHTML = `
-                        <strong>${marker.first} ${marker.last}</strong><br>
+                        ${nameLines}
                         ${marker.address}<br>
                         <label>
                             <input type="checkbox" id="visited-${idx}"> Dropped Literature
@@ -245,7 +276,12 @@
                         .setPopup(popup)
                         .addTo(map);
 
-                    markerObjects.push({ marker, idx, mapMarker, markerEl, popupContent });
+                    markerObjects.push({ 
+                        marker: mapMarker, 
+                        idx: idx, 
+                        markerEl: markerEl, 
+                        popupContent: popupContent 
+                    });
 
                     const visitedBox = popupContent.querySelector(`#visited-${idx}`);
                     const friendlyBox = popupContent.querySelector(`#friendly-${idx}`);
@@ -414,6 +450,9 @@
                         }
                     });
                 });
+                }).catch(error => {
+                    console.error('Error clearing Firebase data:', error);
+                });
             })
             .catch(error => {
                 console.error('Error loading markers.json:', error);
@@ -460,7 +499,8 @@
             if (markerObjects.length === 0) return;
             const bounds = new mapboxgl.LngLatBounds();
             markerObjects.forEach(obj => {
-                bounds.extend([obj.marker.lng, obj.marker.lat]);
+                const lngLat = obj.marker.getLngLat();
+                bounds.extend([lngLat.lng, lngLat.lat]);
             });
             map.fitBounds(bounds, {
                 padding: 50,
@@ -477,7 +517,8 @@
             
             // Add all marker locations to bounds
             markerObjects.forEach(obj => {
-                bounds.extend([obj.marker.lng, obj.marker.lat]);
+                const lngLat = obj.marker.getLngLat();
+                bounds.extend([lngLat.lng, lngLat.lat]);
             });
             
             // Add current location to bounds if available
