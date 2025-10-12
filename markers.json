@@ -1,20 +1,6 @@
 [
     {
         "first": "WAYNE",
-        "last": "TAYLOR",
-        "address": "16602 S 12TH AVE, 85045",
-        "lng": -112.08705,
-        "lat": 33.29574
-    },
-    {
-        "first": "BRYAN, HEATHER, BRODY",
-        "last": "RUANE, RUANE, RUANE",
-        "address": "16621 S 12TH AVE, 85045",
-        "lng": -112.08718,
-        "lat": 33.294995
-    },
-    {
-        "first": "WAYNE",
         "last": "PARKINSON",
         "address": "16629 S 12TH AVE, 85045",
         "lng": -112.087348,
@@ -35,6 +21,41 @@
         "lat": 33.295005
     },
     {
+        "first": "BRYAN, HEATHER, BRODY",
+        "last": "RUANE, RUANE, RUANE",
+        "address": "16621 S 12TH AVE, 85045",
+        "lng": -112.08718,
+        "lat": 33.294995
+    },
+    {
+        "first": "RICHARD, JILL, TERRY",
+        "last": "HOMER, SALOMON, SALOMON",
+        "address": "16615 S 12TH AVE, 85045",
+        "lng": -112.087015,
+        "lat": 33.295137
+    },
+    {
+        "first": "WAYNE",
+        "last": "TAYLOR",
+        "address": "16602 S 12TH AVE, 85045",
+        "lng": -112.08705,
+        "lat": 33.29574
+    },
+    {
+        "first": "PATRICK",
+        "last": "BOYLE",
+        "address": "16615 S 11TH AVE, 85045",
+        "lng": -112.086151,
+        "lat": 33.294376
+    },
+    {
+        "first": "JEFFREY, KAREN",
+        "last": "MARTIN, MARTIN",
+        "address": "16629 S 11TH AVE, 85045",
+        "lng": -112.086679,
+        "lat": 33.294286
+    },
+    {
         "first": "MARILYN, JOHN",
         "last": "KOLOPANIS, KOLOPANIS",
         "address": "16635 S 11TH AVE, 85045",
@@ -49,25 +70,11 @@
         "lat": 33.294461
     },
     {
-        "first": "JEFFREY, KAREN",
-        "last": "MARTIN, MARTIN",
-        "address": "16629 S 11TH AVE, 85045",
-        "lng": -112.086679,
-        "lat": 33.294286
-    },
-    {
         "first": "ROBERT, LINDA",
         "last": "WIGGS, WIGGS",
         "address": "16624 S 11TH AVE, 85045",
         "lng": -112.086854,
         "lat": 33.294732
-    },
-    {
-        "first": "PATRICK",
-        "last": "BOYLE",
-        "address": "16615 S 11TH AVE, 85045",
-        "lng": -112.086151,
-        "lat": 33.294376
     },
     {
         "first": "RITA, CARL",
@@ -84,13 +91,6 @@
         "lat": 33.29495
     },
     {
-        "first": "MICHAEL, KELLY, KADEN, WILLOW, DRAKE, FAITH",
-        "last": "BROWN, BROWN, BROWN, DEMING, BROWN, BROWN",
-        "address": "16603 S 11TH AVE, 85045",
-        "lng": -112.08551,
-        "lat": 33.29439
-    },
-    {
         "first": "JOHN, CLANTON, STEFANIE, JESSE",
         "last": "RUPPRECHT, BEETH, BEETH, BEETH",
         "address": "16602 S 11TH AVE, 85045",
@@ -98,10 +98,45 @@
         "lat": 33.294665
     },
     {
+        "first": "MICHAEL, KELLY, KADEN, WILLOW, DRAKE, FAITH",
+        "last": "BROWN, BROWN, BROWN, DEMING, BROWN, BROWN",
+        "address": "16603 S 11TH AVE, 85045",
+        "lng": -112.08551,
+        "lat": 33.29439
+    },
+    {
         "first": "NAM, NGUYET",
         "last": "NGUYEN, NGUYEN",
         "address": "16824 S 10TH AVE, 85045",
         "lng": -112.086992,
         "lat": 33.292798
+    },
+    {
+        "first": "DONNA, KRISTEN",
+        "last": "PAARLBERG, MARLER",
+        "address": "16844 S 14TH LN, 85045",
+        "lng": -112.091596,
+        "lat": 33.293038
+    },
+    {
+        "first": "JESSICA",
+        "last": "WASSON",
+        "address": "16810 S 14TH DR, 85045",
+        "lng": -112.08968,
+        "lat": 33.29405
+    },
+    {
+        "first": "NOAH",
+        "last": "BENZ",
+        "address": "16814 S 14TH DR, 85045",
+        "lng": -112.08986,
+        "lat": 33.293926
+    },
+    {
+        "first": "CRAIG, JEFFREY",
+        "last": "MASON, MASON",
+        "address": "16821 S 14TH DR, 85045",
+        "lng": -112.089601,
+        "lat": 33.293405
     }
 ]
