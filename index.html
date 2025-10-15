@@ -190,31 +190,57 @@
         }
 
         // Load markers from markers.json and add to map with numeric labels
+        console.log('Starting to fetch markers.json...');
+        console.log('Map object:', map);
         fetch('markers.json')
-            .then(response => response.json())
+            .then(response => {
+                console.log('Fetch response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(markers => {
-                console.log('Loading new markers, clearing old Firebase data...');
+                console.log('Loading markers...', markers.length, 'markers found');
+                console.log('First marker:', markers[0]);
                 
-                // Clear Firebase data first for fresh start
-                db.collection('markerStates').get().then(snapshot => {
-                    const batch = db.batch();
-                    snapshot.docs.forEach(doc => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                }).then(() => {
-                    console.log('Firebase data cleared, loading markers...');
+                // Check if these are actually new markers by comparing with localStorage
+                const currentMarkersHash = JSON.stringify(markers.map(m => m.address).sort());
+                const previousMarkersHash = localStorage.getItem('markersHash');
+                const isNewMarkerSet = currentMarkersHash !== previousMarkersHash;
+                
+                console.log('Is new marker set?', isNewMarkerSet);
+                
+                // Clear existing markers from map
+                markerObjects.forEach(obj => {
+                    if (obj.marker) obj.marker.remove();
+                });
+                markerObjects = [];
+                
+                // Only clear Firebase states if this is actually a new set of markers
+                if (isNewMarkerSet) {
+                    console.log('New markers detected - clearing canvassing states in Firebase...');
+                    localStorage.setItem('markersHash', currentMarkersHash);
                     
-                    // Clear existing markers
-                    markerObjects.forEach(obj => {
-                        if (obj.marker) obj.marker.remove();
-                    });
-                    markerObjects = [];
-                
                     markers.forEach((marker, idx) => {
-                    const markerEl = createMarkerElement(idx + 1);
-
-                    const popupContent = document.createElement('div');
+                        const addressId = createAddressId(marker.address);
+                        // Reset only the canvassing state, preserve flag and notes
+                        db.collection('markerStates').doc(addressId).set({
+                            state: '' // Clear canvassing state
+                        }, { merge: true }); // Merge to preserve existing flag and notes
+                    });
+                } else {
+                    console.log('Same markers as before - preserving Firebase states');
+                }
+            
+                markers.forEach((marker, idx) => {
+                console.log(`Creating marker ${idx + 1} for:`, marker.address);
+                const markerEl = createMarkerElement(idx + 1);
+                // Ensure all new markers start in default state (yellow, no flags)
+                markerEl.style.backgroundColor = '#FFFF00'; // Default yellow
+                setMarkerShape(markerEl, false, idx + 1); // No flag by default
+                
+                const popupContent = document.createElement('div');
                     
                     // Handle comma-separated names
                     const firstNames = marker.first.split(',').map(name => name.trim());
@@ -271,6 +297,52 @@
 
                     const popup = new mapboxgl.Popup({ offset: 25 }).setDOMContent(popupContent);
 
+                    // Load existing data when popup opens
+                    popup.on('open', () => {
+                        const addressId = createAddressId(marker.address);
+                        db.collection('markerStates').doc(addressId).get().then(doc => {
+                            if (doc.exists) {
+                                const data = doc.data();
+                                const flag = data.flag;
+                                const notesHistory = data.notesHistory || [];
+                                
+                                // Keep canvassing states unchecked (reset for new session)
+                                popupContent.querySelector(`#friendly-${idx}`).checked = false;
+                                popupContent.querySelector(`#notfriendly-${idx}`).checked = false;
+                                popupContent.querySelector(`#visited-${idx}`).checked = false;
+                                
+                                // Preserve flag status
+                                popupContent.querySelector(`#flag-${idx}`).checked = !!flag;
+                                
+                                // Keep marker in default state (yellow) regardless of previous canvassing state
+                                markerEl.style.backgroundColor = '#FFFF00';
+                                
+                                // Update marker shape based on preserved flag status
+                                setMarkerShape(markerEl, !!flag, idx + 1);
+                                
+                                // Display preserved notes history
+                                const historyDiv = popupContent.querySelector(`#notes-history-${idx}`);
+                                if (!notesHistory || notesHistory.length === 0) {
+                                    historyDiv.innerHTML = '<em>No notes yet</em>';
+                                } else {
+                                    historyDiv.innerHTML = notesHistory
+                                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                                        .map(note => `
+                                            <div style="margin-bottom: 8px; padding: 5px; 
+                                                       background-color: white; border-left: 3px solid #4CAF50;">
+                                                <div style="font-weight: bold; color: #666; font-size: 10px;">
+                                                    ${note.timestamp}
+                                                </div>
+                                                <div style="margin-top: 2px;">
+                                                    ${note.text}
+                                                </div>
+                                            </div>
+                                        `).join('');
+                                }
+                            }
+                        });
+                    });
+
                     const mapMarker = new mapboxgl.Marker(markerEl)
                         .setLngLat([marker.lng, marker.lat])
                         .setPopup(popup)
@@ -280,7 +352,8 @@
                         marker: mapMarker, 
                         idx: idx, 
                         markerEl: markerEl, 
-                        popupContent: popupContent 
+                        popupContent: popupContent,
+                        address: marker.address 
                     });
 
                     const visitedBox = popupContent.querySelector(`#visited-${idx}`);
@@ -292,9 +365,16 @@
                     const addNoteBtn = popupContent.querySelector(`#add-note-${idx}`);
                     const notesHistory = popupContent.querySelector(`#notes-history-${idx}`);
 
+                    // Function to create safe document ID from address
+                    function createAddressId(address) {
+                        return address.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+                    }
+                    
                     // Functions for timestamped notes
                     function addTimestampedNote(idx, noteText) {
                         if (!noteText.trim()) return;
+                        
+                        isUpdating = true; // Prevent listener conflicts
                         
                         const timestamp = new Date().toLocaleString();
                         const noteEntry = {
@@ -303,15 +383,22 @@
                             id: Date.now() // Unique ID for each note
                         };
                         
+                        const addressId = createAddressId(marker.address);
+                        console.log('Adding note - Address:', marker.address, '-> ID:', addressId);
+                        
                         // Get existing notes from Firebase
-                        db.collection('markerStates').doc(String(idx)).get().then(doc => {
+                        db.collection('markerStates').doc(addressId).get().then(doc => {
                             const data = doc.data() || {};
                             const existingNotes = data.notesHistory || [];
                             const updatedNotes = [...existingNotes, noteEntry];
                             
                             // Update Firebase with new note
-                            db.collection('markerStates').doc(String(idx)).update({
+                            db.collection('markerStates').doc(addressId).update({
                                 notesHistory: updatedNotes
+                            }).then(() => {
+                                // Immediately update the display with the new notes
+                                displayNotesHistory(idx, updatedNotes);
+                                setTimeout(() => { isUpdating = false; }, 100); // Re-enable listener after delay
                             });
                             
                             // Clear the input
@@ -362,7 +449,9 @@
                         }
                     }
 
-                    function handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, selectedBox) {
+                    function handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, selectedBox, address) {
+                        isUpdating = true; // Prevent listener conflicts
+                        
                         [visitedBox, friendlyBox, notFriendlyBox].forEach(box => {
                             if (box !== selectedBox) box.checked = false;
                         });
@@ -384,52 +473,72 @@
                         }
                         setMarkerShape(markerEl, flagBox.checked, idx + 1);
 
-                        db.collection('markerStates').doc(String(idx)).set({ 
+                        const addressId = createAddressId(address);
+                        console.log('Writing to Firebase - Address:', address, '-> ID:', addressId, 'State:', state);
+                        db.collection('markerStates').doc(addressId).set({ 
                             state, 
                             flag: flagBox.checked
-                        }, { merge: true });
+                        }, { merge: true }).then(() => {
+                            console.log('Successfully wrote to Firebase for:', addressId);
+                            // Immediately update the visual state to ensure consistency
+                            if (state === 'friendly') markerEl.style.backgroundColor = '#32CD32';
+                            else if (state === 'notfriendly') markerEl.style.backgroundColor = '#FF4500';
+                            else if (state === 'visited') markerEl.style.backgroundColor = '#B39DDB';
+                            else markerEl.style.backgroundColor = '#FFFF00';
+                            setMarkerShape(markerEl, flagBox.checked, idx + 1);
+                            setTimeout(() => { isUpdating = false; }, 100); // Re-enable listener after delay
+                        });
                     }
 
                     // Reset logic
                     resetBox.addEventListener('change', () => {
                         if (resetBox.checked) {
+                            isUpdating = true; // Prevent listener conflicts
                             visitedBox.checked = false;
                             friendlyBox.checked = false;
                             notFriendlyBox.checked = false;
                             markerEl.style.backgroundColor = '#FFFF00';
                             notesBox.value = '';
                             setMarkerShape(markerEl, flagBox.checked, idx + 1);
-                            db.collection('markerStates').doc(String(idx)).set({ 
+                            const addressId = createAddressId(marker.address);
+                            db.collection('markerStates').doc(addressId).set({ 
                                 state: '', 
                                 flag: flagBox.checked,
                                 notesHistory: [] // Clear all notes history
-                            }, { merge: true });
+                            }, { merge: true }).then(() => {
+                                setTimeout(() => { isUpdating = false; }, 100); // Re-enable listener after delay
+                            });
                             resetBox.checked = false; // Uncheck after reset
                         }
                     });
 
                     // American Flag logic (independent)
                     flagBox.addEventListener('change', () => {
+                        isUpdating = true; // Prevent listener conflicts
                         setMarkerShape(markerEl, flagBox.checked, idx + 1);
                         let state = '';
                         if (friendlyBox.checked) state = 'friendly';
                         else if (notFriendlyBox.checked) state = 'notfriendly';
                         else if (visitedBox.checked) state = 'visited';
-                        db.collection('markerStates').doc(String(idx)).set({ 
+                        const addressId = createAddressId(marker.address);
+                        db.collection('markerStates').doc(addressId).set({ 
                             state, 
                             flag: flagBox.checked
-                        }, { merge: true });
+                        }, { merge: true }).then(() => {
+                            setTimeout(() => { isUpdating = false; }, 100); // Re-enable listener after delay
+                        });
                     });
 
                     // Attach event listeners for exclusive selection
-                    visitedBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, visitedBox));
-                    friendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, friendlyBox));
-                    notFriendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, notFriendlyBox));
+                    visitedBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, visitedBox, marker.address));
+                    friendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, friendlyBox, marker.address));
+                    notFriendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, notFriendlyBox, marker.address));
 
                     // Initialize marker state in Firestore if it doesn't exist
-                    db.collection('markerStates').doc(String(idx)).get().then(doc => {
+                    const addressId = createAddressId(marker.address);
+                    db.collection('markerStates').doc(addressId).get().then(doc => {
                         if (!doc.exists) {
-                            db.collection('markerStates').doc(String(idx)).set({ 
+                            db.collection('markerStates').doc(addressId).set({ 
                                 state: '', 
                                 flag: false, 
                                 notesHistory: []
@@ -450,12 +559,11 @@
                         }
                     });
                 });
-                }).catch(error => {
-                    console.error('Error clearing Firebase data:', error);
-                });
             })
             .catch(error => {
                 console.error('Error loading markers.json:', error);
+                console.error('Make sure markers.json is in the same directory as index.html');
+                console.error('Make sure you are running from a web server (Live Server) not file:// protocol');
             });
 
         // Globe spinning logic
@@ -546,19 +654,62 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // Function to create safe document ID from address (global scope)
+        function createAddressId(address) {
+            return address.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+        }
+        
+        // Track if we're currently updating to prevent listener conflicts
+        let isUpdating = false;
+        
         // Update marker from Firestore
         db.collection('markerStates').onSnapshot(snapshot => {
+            if (isUpdating) return; // Skip updates when user is actively clicking
+            
+            console.log('Firebase snapshot received with', snapshot.docs.length, 'documents');
+            
             snapshot.forEach(doc => {
-                const idx = parseInt(doc.id);
+                const addressId = doc.id;
                 const data = doc.data();
                 const state = data.state;
                 const flag = data.flag;
                 const notesHistory = data.notesHistory || [];
-                const obj = markerObjects.find(o => o.idx === idx);
-                if (!obj) return;
-                obj.popupContent.querySelector(`#friendly-${idx}`).checked = state === 'friendly';
-                obj.popupContent.querySelector(`#notfriendly-${idx}`).checked = state === 'notfriendly';
-                obj.popupContent.querySelector(`#visited-${idx}`).checked = state === 'visited';
+                
+                console.log('Processing Firebase doc:', addressId, 'with state:', state);
+                
+                // Find marker object by matching address
+                const obj = markerObjects.find(o => {
+                    const markerAddressId = createAddressId(o.address);
+                    console.log('Comparing:', markerAddressId, 'with', addressId);
+                    return markerAddressId === addressId;
+                });
+                if (!obj) {
+                    console.log('No marker object found for address:', addressId);
+                    return;
+                }
+                
+                console.log('Updating marker for address:', addressId);
+                
+                // Only update UI elements if there's an actual state (not empty)
+                // Exception: on page refresh with same markers, restore all states
+                const currentMarkersHash = localStorage.getItem('markersHash');
+                const shouldRestoreStates = currentMarkersHash !== null; // Not a fresh marker load
+                
+                if ((state && state !== '') || shouldRestoreStates) {
+                    const idx = obj.idx;
+                    obj.popupContent.querySelector(`#friendly-${idx}`).checked = state === 'friendly';
+                    obj.popupContent.querySelector(`#notfriendly-${idx}`).checked = state === 'notfriendly';
+                    obj.popupContent.querySelector(`#visited-${idx}`).checked = state === 'visited';
+                    
+                    // Update marker color based on state
+                    if (state === 'friendly') obj.markerEl.style.backgroundColor = '#32CD32';
+                    else if (state === 'notfriendly') obj.markerEl.style.backgroundColor = '#FF4500';
+                    else if (state === 'visited') obj.markerEl.style.backgroundColor = '#B39DDB';
+                    else obj.markerEl.style.backgroundColor = '#FFFF00'; // Default yellow for empty state
+                }
+                
+                // Always update flag status and notes (these are preserved)
+                const idx = obj.idx;
                 obj.popupContent.querySelector(`#flag-${idx}`).checked = !!flag;
                 obj.popupContent.querySelector(`#reset-${idx}`).checked = false;
                 
@@ -582,10 +733,7 @@
                         `).join('');
                 }
                 
-                if (state === 'friendly') obj.markerEl.style.backgroundColor = '#32CD32';
-                else if (state === 'notfriendly') obj.markerEl.style.backgroundColor = '#FF4500';
-                else if (state === 'visited') obj.markerEl.style.backgroundColor = '#B39DDB';
-                else obj.markerEl.style.backgroundColor = '#FFFF00';
+                // Update marker shape based on flag (always preserve flag)
                 if (flag) setMarkerShape(obj.markerEl, true, idx + 1);
                 else setMarkerShape(obj.markerEl, false, idx + 1);
             });
