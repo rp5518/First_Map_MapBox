@@ -59,9 +59,8 @@
         map.addControl(
             new MapboxGeocoder({
                 accessToken: mapboxgl.accessToken,
-                useBrowserFocus: true,
                 mapboxgl: mapboxgl,
-                limit: 10,
+                limit: 10, // Limit results to 10 in pulldown list
             })
         );
 
@@ -76,7 +75,7 @@
         }));
 
         // Variable to store the current location marker
-        let currentLocationMarker = null;
+        let currentLocationMarker = null; 
 
         // Function to create a custom current location marker
         function createCurrentLocationMarker() {
@@ -134,7 +133,7 @@
                     {
                         enableHighAccuracy: true,
                         timeout: 10000,
-                        maximumAge: 60000 // Cache location for 1 minute
+                        maximumAge: 10000 // Cache location for 10 seconds
                     }
                 );
             } else {
@@ -653,6 +652,14 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+
+        // Test Firebase connection
+        console.log('Firebase initialized, testing connection...');
+        db.collection('markerStates').limit(1).get().then(snapshot => {
+            console.log('Firebase connection test successful. Documents found:', snapshot.size);
+        }).catch(error => {
+            console.error('Firebase connection test failed:', error);
+        });
 
         // Function to create safe document ID from address (global scope)
         function createAddressId(address) {
