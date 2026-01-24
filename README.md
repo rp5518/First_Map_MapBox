@@ -12,3 +12,12 @@ The latest versions of "C:\Users\wjg\Python_Stuff\First_Map_MapBox\Address2LngLa
 The marker’s data is stored at: https://console.firebase.google.com
 The final map can be accessed at: https://map2canvass.com
 My map2canvass name domain is saved in Cloudflare. I do not have a password. I just login with Google.
+
+## Understanding Domain Name Assignments
+    CNAME Type (Cononical Name) = www
+    "A" Name Type (address Name) = map2canvass.com
+    www.map2canvass.com maps to: rp5518.github.io
+    map2canvass.com inside of Github maps to one of four servers: 185.199.108.153 or 185.199.109.153 or 185.199.110.153 or 185.199.111.153
+    The apex domain (also called a "root domain" or "naked domain") is your domain name without any subdomain prefix
+    apex domain = map2canvass.com
+
