@@ -314,12 +314,10 @@
                 console.log('Loading markers...', markers.length, 'markers found');
                 console.log('First marker:', markers[0]);
                 
-                // Check if these are actually new markers by comparing with localStorage
+                // Create marker hash for version tracking
                 const currentMarkersHash = JSON.stringify(markers.map(m => m.address).sort());
-                const previousMarkersHash = localStorage.getItem('markersHash');
-                const isNewMarkerSet = currentMarkersHash !== previousMarkersHash;
                 
-                console.log('Is new marker set?', isNewMarkerSet);
+                console.log('Loading markers - real-time sync active');
                 
                 // Clear existing markers from map
                 markerObjects.forEach(obj => {
@@ -327,21 +325,38 @@
                 });
                 markerObjects = [];
                 
-                // Only clear Firebase states if this is actually a new set of markers
-                if (isNewMarkerSet) {
-                    console.log('New markers detected - clearing canvassing states in Firebase...');
-                    localStorage.setItem('markersHash', currentMarkersHash);
+                // Check Firebase for marker version to determine if reset is needed
+                // Only reset if markers.json was actually updated (not browser/cache issues)
+                db.collection('mapSettings').doc('markerVersion').get().then(doc => {
+                    const storedHash = doc.exists ? doc.data().markersHash : null;
                     
-                    markers.forEach((marker, idx) => {
-                        const addressId = createAddressId(marker.address);
-                        // Reset only the canvassing state, preserve flag and notes
-                        db.collection('markerStates').doc(addressId).set({
-                            state: '' // Clear canvassing state
-                        }, { merge: true }); // Merge to preserve existing flag and notes
+                    if (storedHash !== currentMarkersHash) {
+                        console.log('Markers.json has been updated - clearing canvassing states...');
+                        
+                        // Update the stored version
+                        db.collection('mapSettings').doc('markerVersion').set({
+                            markersHash: currentMarkersHash,
+                            lastUpdated: new Date().toISOString()
+                        });
+                        
+                        // Reset marker states for new marker set
+                        markers.forEach((marker, idx) => {
+                            const addressId = createAddressId(marker.address);
+                            db.collection('markerStates').doc(addressId).set({
+                                state: '' // Clear canvassing state
+                            }, { merge: true }); // Preserve flag and notes
+                        });
+                    } else {
+                        console.log('Same markers.json - preserving all Firebase states');
+                    }
+                }).catch(error => {
+                    console.log('First time loading - setting up marker version tracking');
+                    // First time setup
+                    db.collection('mapSettings').doc('markerVersion').set({
+                        markersHash: currentMarkersHash,
+                        lastUpdated: new Date().toISOString()
                     });
-                } else {
-                    console.log('Same markers as before - preserving Firebase states');
-                }
+                });
             
                 markers.forEach((marker, idx) => {
                 console.log(`Creating marker ${idx + 1} for:`, marker.address);
@@ -808,23 +823,17 @@
                 
                 console.log('Updating marker for address:', addressId);
                 
-                // Only update UI elements if there's an actual state (not empty)
-                // Exception: on page refresh with same markers, restore all states
-                const currentMarkersHash = localStorage.getItem('markersHash');
-                const shouldRestoreStates = currentMarkersHash !== null; // Not a fresh marker load
+                // Always restore states from Firebase (real-time sync)
+                const idx = obj.idx;
+                obj.popupContent.querySelector(`#friendly-${idx}`).checked = state === 'friendly';
+                obj.popupContent.querySelector(`#notfriendly-${idx}`).checked = state === 'notfriendly';
+                obj.popupContent.querySelector(`#visited-${idx}`).checked = state === 'visited';
                 
-                if ((state && state !== '') || shouldRestoreStates) {
-                    const idx = obj.idx;
-                    obj.popupContent.querySelector(`#friendly-${idx}`).checked = state === 'friendly';
-                    obj.popupContent.querySelector(`#notfriendly-${idx}`).checked = state === 'notfriendly';
-                    obj.popupContent.querySelector(`#visited-${idx}`).checked = state === 'visited';
-                    
-                    // Update marker color based on state
-                    if (state === 'friendly') obj.markerEl.style.backgroundColor = '#32CD32';
-                    else if (state === 'notfriendly') obj.markerEl.style.backgroundColor = '#FF4500';
-                    else if (state === 'visited') obj.markerEl.style.backgroundColor = '#B39DDB';
-                    else obj.markerEl.style.backgroundColor = '#FFFF00'; // Default yellow for empty state
-                }
+                // Update marker color based on Firebase state
+                if (state === 'friendly') obj.markerEl.style.backgroundColor = '#32CD32';
+                else if (state === 'notfriendly') obj.markerEl.style.backgroundColor = '#FF4500';
+                else if (state === 'visited') obj.markerEl.style.backgroundColor = '#B39DDB';
+                else obj.markerEl.style.backgroundColor = '#FFFF00'; // Default yellow
                 
                 // Always update flag status and notes (these are preserved)
                 const idx = obj.idx;
