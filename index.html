@@ -154,6 +154,28 @@
 
         // Move map initialization into a function
         function initializeMap() {
+        
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCm-dDUMYN4JLdIyt0FT0BzBIRLCHXm8EU",
+            authDomain: "maps4canvasing.firebaseapp.com",
+            projectId: "maps4canvasing",
+            storageBucket: "maps4canvasing.firebasestorage.app",
+            messagingSenderId: "913974581293",
+            appId: "1:913974581293:web:201a7403bc5d9c82d900a4",
+            measurementId: "G-X0G2YNP37H"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Test Firebase connection
+        console.log('Firebase initialized, testing connection...');
+        db.collection('markerStates').limit(1).get().then(snapshot => {
+            console.log('Firebase connection test successful. Documents found:', snapshot.size);
+        }).catch(error => {
+            console.error('Firebase connection test failed:', error);
+        });
+        
         // ADD YOUR ACCESS TOKEN FROM https://account.mapbox.com
         const INITIAL_CENTER = [-112, 33.3]; // Centered on the Ahwhatukee Foothills
         const INITIAL_ZOOM = 1.5; // Start zoomed out for globe effect
@@ -765,28 +787,7 @@
                 maxZoom: 16 // Prevent zooming in too close
             });
         });
-
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyCm-dDUMYN4JLdIyt0FT0BzBIRLCHXm8EU",
-            authDomain: "maps4canvasing.firebaseapp.com",
-            projectId: "maps4canvasing",
-            storageBucket: "maps4canvasing.firebasestorage.app",
-            messagingSenderId: "913974581293",
-            appId: "1:913974581293:web:201a7403bc5d9c82d900a4",
-            measurementId: "G-X0G2YNP37H"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        // Test Firebase connection
-        console.log('Firebase initialized, testing connection...');
-        db.collection('markerStates').limit(1).get().then(snapshot => {
-            console.log('Firebase connection test successful. Documents found:', snapshot.size);
-        }).catch(error => {
-            console.error('Firebase connection test failed:', error);
-        });
-
+        
         // Function to create safe document ID from address (global scope)
         function createAddressId(address) {
             return address.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
@@ -836,7 +837,6 @@
                 else obj.markerEl.style.backgroundColor = '#FFFF00'; // Default yellow
                 
                 // Always update flag status and notes (these are preserved)
-                const idx = obj.idx;
                 obj.popupContent.querySelector(`#flag-${idx}`).checked = !!flag;
                 obj.popupContent.querySelector(`#reset-${idx}`).checked = false;
                 
