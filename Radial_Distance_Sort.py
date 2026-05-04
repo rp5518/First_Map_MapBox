@@ -1,0 +1,161 @@
+# %%
+import pandas as pd
+import requests
+import time
+import json
+import os
+import math
+
+"""
+RADIAL DISTANCE SORT SCRIPT - Ran Interactively in Jupyter Notebook "Run Below"
+
+This script processes an Excel file containing contact information with addresses and performs the following operations:
+
+1. INPUTS: Prompts user for an Excel file path containing columns:
+   - FirstName, LastName, FullStreetAddress, Zip, Age/Party
+
+2. GEOCODING: Uses Mapbox Geocoding API to convert each address (FullStreetAddress + Zip) 
+   into latitude/longitude coordinates
+
+3. DISTANCE CALCULATION: Calculates the straight-line distance in feet from the first address 
+   in the list to all other addresses using the Haversine formula
+
+4. SORTING: Sorts all addresses by their distance from the first address (closest to farthest)
+
+5. OUTPUT: Creates a new Excel file "Radial_Distance.xlsx" with columns:
+   - FirstName, LastName, FullStreetAddress, Zip, Age/Party, lng, lat, distance_in_feet
+   - Auto-sized columns for optimal viewing
+   - Sorted by distance from the first address
+
+Use case: Organizing contact lists by proximity for canvassing, delivery routes, or territorial planning.
+"""
+
+# Get Mapbox token from environment variable or config file
+import os
+MAPBOX_TOKEN = os.environ.get('MAPBOX_TOKEN')
+
+if not MAPBOX_TOKEN:
+    # If environment variable not set, prompt user for token
+    print("Mapbox token not found in environment variables.")
+    print("Please set MAPBOX_TOKEN environment variable or enter it below:")
+    MAPBOX_TOKEN = input("Enter your Mapbox API token: ").strip()
+
+def geocode_address(address, token):
+    # This function takes a street address and a Mapbox API token,
+    # and returns the longitude and latitude coordinates for that address using the Mapbox Geocoding API.
+    # It builds the API request URL with the address, sends a GET request, and parses the JSON response.
+    # If the response contains at least one feature (i.e., a geocoding result),
+    # it extracts the coordinates ([lng, lat]) from the first feature and returns them.
+    # If no features are found, it returns None.
+    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{address}.json"
+    params = {'access_token': token, 'limit': 1}
+    response = requests.get(url, params=params)
+    data = response.json()
+    if data['features']:
+        coords = data['features'][0]['geometry']['coordinates']
+        return coords  # [lng, lat]
+    return None
+
+def calculate_distance_feet(lat1, lng1, lat2, lng2):
+    # Calculate distance between two points using Haversine formula
+    # Returns distance in feet
+    R = 3959  # Earth's radius in miles
+    
+    # Convert coordinates to radians
+    lat1_rad = math.radians(lat1)
+    lng1_rad = math.radians(lng1)
+    lat2_rad = math.radians(lat2)
+    lng2_rad = math.radians(lng2)
+    
+    # Haversine formula
+    dlat = lat2_rad - lat1_rad
+    dlng = lng2_rad - lng1_rad
+    
+    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlng/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    
+    distance_miles = R * c
+    distance_feet = distance_miles * 5280  # Convert miles to feet
+    
+    return round(distance_feet, 2)
+
+# Get file path from user
+prompt_1 = "Enter the Full Path to an Excel File in the Completed_Walk_Lists Directory: "
+prompt_1 += "Copy as Path and Paste Here: "
+file_path = input(prompt_1)
+file_path = file_path.strip('"')  # remove quotations
+
+# Read Excel file
+df = pd.read_excel(file_path)
+print(f"Loaded {len(df)} rows from Excel file")
+print("Column names in your Excel file:")
+print(df.columns.tolist())
+
+# Geocode and collect results
+results = []
+first_address_coords = None  # Store the first address coordinates
+
+for idx, row in df.iterrows():
+    # Combine FullStreetAddress and Zip to create complete address
+    complete_address = f"{row['FullStreetAddress']}, {row['Zip']}"
+    
+    coords = geocode_address(complete_address, MAPBOX_TOKEN)
+    if coords:
+        # Store the first address coordinates for distance calculations
+        if first_address_coords is None:
+            first_address_coords = coords
+            distance_feet = 0  # First address has 0 distance from itself
+        else:
+            # Calculate distance from first address
+            distance_feet = calculate_distance_feet(
+                first_address_coords[1], first_address_coords[0],  # lat, lng of first address
+                coords[1], coords[0]  # lat, lng of current address
+            )
+        
+        results.append({
+            'FirstName': row['FirstName'],
+            'LastName': row['LastName'],
+            'FullStreetAddress': row['FullStreetAddress'],
+            'Zip': row['Zip'],
+            'Age/Party': row['Age/Party'],
+            'lng': coords[0],
+            'lat': coords[1],
+            'distance_in_feet': distance_feet
+        })
+        print(f"Geocoded: {row['FirstName']} {row['LastName']} - Distance: {distance_feet} ft")
+    else:
+        print(f"Failed: {complete_address}")
+    time.sleep(0.2)  # Respect Mapbox rate limits
+
+# Export to Excel file
+import os
+
+# Get the directory where this script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Create the full path to Radial_Distance.xlsx in the same directory as this script
+output_file = os.path.join(script_dir, 'Radial_Distance.xlsx')
+
+# Convert results to DataFrame, sort by distance, and save as Excel
+results_df = pd.DataFrame(results)
+results_df = results_df.sort_values('distance_in_feet', ascending=True)
+
+# Create Excel file with auto-sized columns
+with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
+    results_df.to_excel(writer, sheet_name='Sheet1', index=False)
+    
+    # Get the xlsxwriter workbook and worksheet objects
+    workbook = writer.book
+    worksheet = writer.sheets['Sheet1']
+    
+    # Auto-adjust column widths based on content
+    for i, col in enumerate(results_df.columns):
+        # Calculate the maximum width needed for each column
+        max_len = max(
+            results_df[col].astype(str).map(len).max(),  # max length of column data
+            len(str(col))  # length of column name
+        )
+        # Add some padding and set the column width
+        worksheet.set_column(i, i, max_len + 2)
+
+print(f"Radial_Distance.xlsx created successfully at: {output_file}")
+# %%

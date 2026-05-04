@@ -1,1 +1,142 @@
-[{"first": "JON, KIMBERLY", "last": "MARTIN, MARTIN", "address": "15218 S 14TH DR, 85045", "lng": -112.091746, "lat": 33.30501}, {"first": "ELISE, DAMON", "last": "ARGALL, GORDON", "address": "15230 S 14TH DR, 85045", "lng": -112.091715, "lat": 33.30448}, {"first": "CAROLYN, GLENROY", "last": "BONAR, SAARI", "address": "15229 S 14TH DR, 85045", "lng": -112.091143, "lat": 33.304481}, {"first": "CHRISTOPHER", "last": "BUSCAGLIO", "address": "15225 S 14TH DR, 85045", "lng": -112.091143, "lat": 33.30466}, {"first": "ELIZABETH", "last": "LOCKRIDGE", "address": "15231 S 14TH AVE, 85045", "lng": -112.090172, "lat": 33.304462}, {"first": "BRADLEY, CASSIE, HOGAN", "last": "MILLER, MILLER-HART, MILLER", "address": "15224 S 14TH AVE, 85045", "lng": -112.090772, "lat": 33.304674}, {"first": "MYA", "last": "SWAN", "address": "15220 S 14TH AVE, 85045", "lng": -112.09072, "lat": 33.30492}, {"first": "JUDITH, RANDALL", "last": "HERRING, ROWE", "address": "15233 S 15TH AVE, 85045", "lng": -112.092125, "lat": 33.30448}, {"first": "TROY", "last": "STUTZ", "address": "15225 S 15TH AVE, 85045", "lng": -112.092116, "lat": 33.304834}, {"first": "SHANNON, WILLIAM", "last": "CORNALL, CORNALL", "address": "15228 S 15TH AVE, 85045", "lng": -112.092695, "lat": 33.30466}, {"first": "BRANDY", "last": "SMITH", "address": "15224 S 15TH AVE, 85045", "lng": -112.092722, "lat": 33.30483}, {"first": "LINDSEY, AARON", "last": "BORCHERS SANCHEZ, SANCHEZ", "address": "15417 S 14TH AVE, 85045", "lng": -112.089929, "lat": 33.303419}, {"first": "VICKI", "last": "MCFARLAND", "address": "15421 S 14TH AVE, 85045", "lng": -112.089944, "lat": 33.303242}, {"first": "LINDSAY, CONNOR", "last": "BLY, BLY", "address": "15422 S 13TH DR, 85045", "lng": -112.089563, "lat": 33.303222}, {"first": "KELLY", "last": "HOLM-CIUFFO", "address": "15426 S 13TH DR, 85045", "lng": -112.089599, "lat": 33.303051}, {"first": "JORGE", "last": "ASCENCIO", "address": "15427 S 13TH DR, 85045", "lng": -112.089011, "lat": 33.303011}, {"first": "CHARLES, RAMONA", "last": "FOX, FOX", "address": "15425 S 13TH AVE, 85045", "lng": -112.08826, "lat": 33.30336}, {"first": "ROCCO, KRISTINA", "last": "PETROCCO, PETROCCO", "address": "15424 S 13TH AVE, 85045", "lng": -112.088691, "lat": 33.303243}, {"first": "MARGUERITE", "last": "WADE", "address": "16219 S 13TH AVE, 85045", "lng": -112.088486, "lat": 33.29877}, {"first": "LINDA", "last": "OSWEILER", "address": "16036 S 14TH DR, 85045", "lng": -112.090651, "lat": 33.300325}]
+[
+    {
+        "first": "JON, KIMBERLY",
+        "last": "MARTIN, MARTIN",
+        "address": "15218 S 14TH DR, 85045",
+        "lng": -112.091746,
+        "lat": 33.30501
+    },
+    {
+        "first": "ELISE, DAMON",
+        "last": "ARGALL, GORDON",
+        "address": "15230 S 14TH DR, 85045",
+        "lng": -112.091715,
+        "lat": 33.30448
+    },
+    {
+        "first": "CAROLYN, GLENROY",
+        "last": "BONAR, SAARI",
+        "address": "15229 S 14TH DR, 85045",
+        "lng": -112.091143,
+        "lat": 33.304481
+    },
+    {
+        "first": "CHRISTOPHER",
+        "last": "BUSCAGLIO",
+        "address": "15225 S 14TH DR, 85045",
+        "lng": -112.091143,
+        "lat": 33.30466
+    },
+    {
+        "first": "ELIZABETH",
+        "last": "LOCKRIDGE",
+        "address": "15231 S 14TH AVE, 85045",
+        "lng": -112.090172,
+        "lat": 33.304462
+    },
+    {
+        "first": "BRADLEY, CASSIE, HOGAN",
+        "last": "MILLER, MILLER-HART, MILLER",
+        "address": "15224 S 14TH AVE, 85045",
+        "lng": -112.090772,
+        "lat": 33.304674
+    },
+    {
+        "first": "MYA",
+        "last": "SWAN",
+        "address": "15220 S 14TH AVE, 85045",
+        "lng": -112.09072,
+        "lat": 33.30492
+    },
+    {
+        "first": "JUDITH, RANDALL",
+        "last": "HERRING, ROWE",
+        "address": "15233 S 15TH AVE, 85045",
+        "lng": -112.092125,
+        "lat": 33.30448
+    },
+    {
+        "first": "TROY",
+        "last": "STUTZ",
+        "address": "15225 S 15TH AVE, 85045",
+        "lng": -112.092116,
+        "lat": 33.304834
+    },
+    {
+        "first": "SHANNON, WILLIAM",
+        "last": "CORNALL, CORNALL",
+        "address": "15228 S 15TH AVE, 85045",
+        "lng": -112.092695,
+        "lat": 33.30466
+    },
+    {
+        "first": "BRANDY",
+        "last": "SMITH",
+        "address": "15224 S 15TH AVE, 85045",
+        "lng": -112.092722,
+        "lat": 33.30483
+    },
+    {
+        "first": "LINDSEY, AARON",
+        "last": "BORCHERS SANCHEZ, SANCHEZ",
+        "address": "15417 S 14TH AVE, 85045",
+        "lng": -112.089929,
+        "lat": 33.303419
+    },
+    {
+        "first": "VICKI",
+        "last": "MCFARLAND",
+        "address": "15421 S 14TH AVE, 85045",
+        "lng": -112.089944,
+        "lat": 33.303242
+    },
+    {
+        "first": "LINDSAY, CONNOR",
+        "last": "BLY, BLY",
+        "address": "15422 S 13TH DR, 85045",
+        "lng": -112.089563,
+        "lat": 33.303222
+    },
+    {
+        "first": "KELLY",
+        "last": "HOLM-CIUFFO",
+        "address": "15426 S 13TH DR, 85045",
+        "lng": -112.089599,
+        "lat": 33.303051
+    },
+    {
+        "first": "JORGE",
+        "last": "ASCENCIO",
+        "address": "15427 S 13TH DR, 85045",
+        "lng": -112.089011,
+        "lat": 33.303011
+    },
+    {
+        "first": "CHARLES, RAMONA",
+        "last": "FOX, FOX",
+        "address": "15425 S 13TH AVE, 85045",
+        "lng": -112.08826,
+        "lat": 33.30336
+    },
+    {
+        "first": "ROCCO, KRISTINA",
+        "last": "PETROCCO, PETROCCO",
+        "address": "15424 S 13TH AVE, 85045",
+        "lng": -112.088691,
+        "lat": 33.303243
+    },
+    {
+        "first": "MARGUERITE",
+        "last": "WADE",
+        "address": "16219 S 13TH AVE, 85045",
+        "lng": -112.088486,
+        "lat": 33.29877
+    },
+    {
+        "first": "LINDA",
+        "last": "OSWEILER",
+        "address": "16036 S 14TH DR, 85045",
+        "lng": -112.090651,
+        "lat": 33.300325
+    }
+]
