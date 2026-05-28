@@ -80,12 +80,50 @@ print(f"Loaded {len(df)} rows from Excel file")
 print("Column names in your Excel file:")
 print(df.columns.tolist())
 
+# Support two input schemas for street address.
+# If FullStreetAddress is missing, construct it from primary street components.
+if 'FullStreetAddress' not in df.columns:
+    address_parts = ['PrimaryHouseNumber', 'PrimaryStreetPre', 'PrimaryStreetName', 'PrimaryStreetType']
+    missing_parts = [col for col in address_parts if col not in df.columns]
+    if missing_parts:
+        raise ValueError(
+            "Excel file must include either 'FullStreetAddress' or all of "
+            f"{address_parts}. Missing: {missing_parts}"
+        )
+
+    df['FullStreetAddress'] = (
+        df['PrimaryHouseNumber'].fillna('').astype(str).str.strip() + ' ' +
+        df['PrimaryStreetPre'].fillna('').astype(str).str.strip() + ' ' +
+        df['PrimaryStreetName'].fillna('').astype(str).str.strip() + ' ' +
+        df['PrimaryStreetType'].fillna('').astype(str).str.strip()
+    ).str.replace(r'\s+', ' ', regex=True).str.strip()
+
+    print("Constructed 'FullStreetAddress' from primary street component columns.")
+
+# Support two input schemas for age and party information.
+# If Age/Party is missing, construct it from Age and OfficialParty columns.
+if 'Age/Party' not in df.columns:
+    age_party_parts = ['Age', 'OfficialParty']
+    missing_parts = [col for col in age_party_parts if col not in df.columns]
+    if missing_parts:
+        raise ValueError(
+            "Excel file must include either 'Age/Party' or both of "
+            f"{age_party_parts}. Missing: {missing_parts}"
+        )
+    
+    df['Age/Party'] = (
+        df['Age'].fillna('').astype(str).str.strip() + ' ' +
+        df['OfficialParty'].fillna('').astype(str).str.strip()
+    ).str.replace(r'\s+', ' ', regex=True).str.strip()
+    
+    print("Constructed 'Age/Party' from 'Age' and 'OfficialParty' columns.")
+
 # Geocode and collect results
 results = []
 first_complete_address = None  # Store the first address string for distance calculations
 
 for idx, row in df.iterrows():
-    # Combine FullStreetAddress and Zip to create complete address
+    # Combine FullStreetAddress and Zip to create complete address for geocoding
     complete_address = f"{row['FullStreetAddress']}, {row['Zip']}"
     
     coords = geocode_address(complete_address, MAPBOX_TOKEN)
@@ -98,16 +136,23 @@ for idx, row in df.iterrows():
             # Calculate driving distance from first address using get_distance function
             distance_feet = get_distance(first_complete_address, complete_address)
         
-        results.append({
+        result_row = {
             'FirstName': row['FirstName'],
             'LastName': row['LastName'],
             'FullStreetAddress': row['FullStreetAddress'],
+        }
+        # Insert PrimaryUnitNumber after FullStreetAddress if it exists
+        if 'PrimaryUnitNumber' in df.columns:
+            result_row['PrimaryUnitNumber'] = row['PrimaryUnitNumber'] if pd.notna(row['PrimaryUnitNumber']) else ''
+        
+        result_row.update({
             'Zip': row['Zip'],
             'Age/Party': row['Age/Party'],
             'lng': coords[0],
             'lat': coords[1],
             'distance_in_feet': distance_feet
         })
+        results.append(result_row)
         print(f"Geocoded: {row['FirstName']} {row['LastName']} - Distance: {distance_feet} ft")
     else:
         print(f"Failed: {complete_address}")
