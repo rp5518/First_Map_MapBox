@@ -36,7 +36,7 @@ STATE BEHAVIOR
 DEPENDENCIES / RUNTIME REQUIREMENTS
 - Mapbox GL JS and Mapbox Geocoder plugin (CDN imports in head).
 - Firebase app + Firestore compat SDKs.
-- A valid Mapbox token from local-config.js (window.MAPBOX_TOKEN) or localStorage.
+- A valid Mapbox token from local-config.js, localStorage, or built-in public fallback.
 - Serve over HTTP (for example VS Code Live Server), not file://.
 
 MAINTENANCE NOTES
@@ -236,18 +236,16 @@ MAINTENANCE NOTES
             console.error('Firebase connection test failed:', error);
         });
         
-        // Load Mapbox token from local-config.js first, then localStorage, then prompt once.
+        // Load Mapbox token from local-config.js first, then localStorage, then built-in public token.
         const INITIAL_CENTER = [-112, 33.3]; // Centered on the Ahwhatukee Foothills
         const INITIAL_ZOOM = 1.5; // Start zoomed out for globe effect
+        const DEFAULT_MAPBOX_TOKEN = 'pk.eyJ1Ijoid2pncnA1NTE4IiwiYSI6ImNtZmxxMm01MzA3c3oyaXExMWMxamVqZWoifQ.u2vTBRK2tHKi1HwI2JkhfA';
         let runtimeMapboxToken = (window.MAPBOX_TOKEN || '').trim();
         if (!runtimeMapboxToken) {
             runtimeMapboxToken = localStorage.getItem('MAPBOX_TOKEN') || '';
         }
         if (!runtimeMapboxToken) {
-            runtimeMapboxToken = (prompt('Enter Mapbox access token:') || '').trim();
-            if (runtimeMapboxToken) {
-                localStorage.setItem('MAPBOX_TOKEN', runtimeMapboxToken);
-            }
+            runtimeMapboxToken = DEFAULT_MAPBOX_TOKEN;
         }
         if (!runtimeMapboxToken) {
             alert('A Mapbox access token is required to load the map.');
