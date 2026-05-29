@@ -36,7 +36,7 @@ STATE BEHAVIOR
 DEPENDENCIES / RUNTIME REQUIREMENTS
 - Mapbox GL JS and Mapbox Geocoder plugin (CDN imports in head).
 - Firebase app + Firestore compat SDKs.
-- A valid Mapbox token entered at runtime (stored in localStorage as MAPBOX_TOKEN).
+- A valid Mapbox token from local-config.js (window.MAPBOX_TOKEN) or localStorage.
 - Serve over HTTP (for example VS Code Live Server), not file://.
 
 MAINTENANCE NOTES
@@ -52,6 +52,7 @@ MAINTENANCE NOTES
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
+    <script src="local-config.js"></script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.css" type="text/css">
@@ -235,10 +236,13 @@ MAINTENANCE NOTES
             console.error('Firebase connection test failed:', error);
         });
         
-        // Load Mapbox token from browser storage or prompt at runtime.
+        // Load Mapbox token from local-config.js first, then localStorage, then prompt once.
         const INITIAL_CENTER = [-112, 33.3]; // Centered on the Ahwhatukee Foothills
         const INITIAL_ZOOM = 1.5; // Start zoomed out for globe effect
-        let runtimeMapboxToken = localStorage.getItem('MAPBOX_TOKEN') || '';
+        let runtimeMapboxToken = (window.MAPBOX_TOKEN || '').trim();
+        if (!runtimeMapboxToken) {
+            runtimeMapboxToken = localStorage.getItem('MAPBOX_TOKEN') || '';
+        }
         if (!runtimeMapboxToken) {
             runtimeMapboxToken = (prompt('Enter Mapbox access token:') || '').trim();
             if (runtimeMapboxToken) {

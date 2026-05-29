@@ -24,3 +24,6 @@ Thumbs.db
 # Ignore temporary files
 *.tmp
 *.log
+
+# Local secrets/config
+local-config.js
