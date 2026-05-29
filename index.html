@@ -525,44 +525,45 @@ MAINTENANCE NOTES
                     popup.on('open', () => {
                         const addressId = createAddressId(marker.address);
                         db.collection('markerStates').doc(addressId).get().then(doc => {
-                            if (doc.exists) {
-                                const data = doc.data();
-                                const flag = data.flag;
-                                const notesHistory = data.notesHistory || [];
-                                
-                                // Keep canvassing states unchecked (reset for new session)
-                                popupContent.querySelector(`#friendly-${idx}`).checked = false;
-                                popupContent.querySelector(`#notfriendly-${idx}`).checked = false;
-                                popupContent.querySelector(`#visited-${idx}`).checked = false;
-                                
-                                // Preserve flag status
-                                popupContent.querySelector(`#flag-${idx}`).checked = !!flag;
-                                
-                                // Keep marker in default state (yellow) regardless of previous canvassing state
+                            const data = doc.exists ? doc.data() : {};
+                            const state = data.state || '';
+                            const flag = !!data.flag;
+                            const notesHistory = data.notesHistory || [];
+
+                            popupContent.querySelector(`#friendly-${idx}`).checked = state === 'friendly';
+                            popupContent.querySelector(`#notfriendly-${idx}`).checked = state === 'notfriendly';
+                            popupContent.querySelector(`#visited-${idx}`).checked = state === 'visited';
+                            popupContent.querySelector(`#flag-${idx}`).checked = flag;
+
+                            if (state === 'friendly') {
+                                markerEl.style.backgroundColor = '#32CD32';
+                            } else if (state === 'notfriendly') {
+                                markerEl.style.backgroundColor = '#FF4500';
+                            } else if (state === 'visited') {
+                                markerEl.style.backgroundColor = '#B39DDB';
+                            } else {
                                 markerEl.style.backgroundColor = '#FFFF00';
-                                
-                                // Update marker shape based on preserved flag status
-                                setMarkerShape(markerEl, !!flag, idx + 1);
-                                
-                                // Display preserved notes history
-                                const historyDiv = popupContent.querySelector(`#notes-history-${idx}`);
-                                if (!notesHistory || notesHistory.length === 0) {
-                                    historyDiv.innerHTML = '<em>No notes yet</em>';
-                                } else {
-                                    historyDiv.innerHTML = notesHistory
-                                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                                        .map(note => `
-                                            <div style="margin-bottom: 8px; padding: 5px; 
-                                                       background-color: white; border-left: 3px solid #4CAF50;">
-                                                <div style="font-weight: bold; color: #666; font-size: 10px;">
-                                                    ${note.timestamp}
-                                                </div>
-                                                <div style="margin-top: 2px;">
-                                                    ${note.text}
-                                                </div>
+                            }
+
+                            setMarkerShape(markerEl, flag, idx + 1);
+
+                            const historyDiv = popupContent.querySelector(`#notes-history-${idx}`);
+                            if (!notesHistory || notesHistory.length === 0) {
+                                historyDiv.innerHTML = '<em>No notes yet</em>';
+                            } else {
+                                historyDiv.innerHTML = notesHistory
+                                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                                    .map(note => `
+                                        <div style="margin-bottom: 8px; padding: 5px; 
+                                                   background-color: white; border-left: 3px solid #4CAF50;">
+                                            <div style="font-weight: bold; color: #666; font-size: 10px;">
+                                                ${note.timestamp}
                                             </div>
-                                        `).join('');
-                                }
+                                            <div style="margin-top: 2px;">
+                                                ${note.text}
+                                            </div>
+                                        </div>
+                                    `).join('');
                             }
                         });
                     });
