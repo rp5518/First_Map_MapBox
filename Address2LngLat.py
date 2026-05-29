@@ -14,10 +14,6 @@ import os
 from pathlib import Path
 
 MAPBOX_TOKEN = os.getenv('MAPBOX_TOKEN', '').strip()
-if not MAPBOX_TOKEN:
-    MAPBOX_TOKEN = input('Enter Mapbox access token: ').strip()
-if not MAPBOX_TOKEN:
-    raise ValueError('Mapbox access token is required.')
 
 try:
     SCRIPT_DIR = Path(__file__).resolve().parent
@@ -62,6 +58,15 @@ def geocode_address(address, token):
     return None
 
 
+def get_mapbox_token():
+    global MAPBOX_TOKEN
+    if not MAPBOX_TOKEN:
+        MAPBOX_TOKEN = input('Enter Mapbox access token: ').strip()
+    if not MAPBOX_TOKEN:
+        raise ValueError('Mapbox access token is required for geocoding.')
+    return MAPBOX_TOKEN
+
+
 # Read Excel
 input_excel = prompt_for_input_excel_path()
 print(f'Using input file: {input_excel}')
@@ -79,17 +84,46 @@ if 'CompleteAddress' not in df.columns:
 
 # Geocode and collect results
 results = []
-for idx, row in df.iterrows():
-    coords = geocode_address(row['CompleteAddress'], MAPBOX_TOKEN)
+has_existing_coordinates = {'lng', 'lat'}.issubset(df.columns)
+has_age_column = 'Age' in df.columns
+
+for complete_address, address_group in df.groupby('CompleteAddress', sort=False):
+    # Keep row-level ordering so first/last/age entries stay aligned in popup rendering.
+    first_values = [value.strip() for value in address_group['FirstName'].fillna('').astype(str).tolist()]
+    last_values = [value.strip() for value in address_group['LastName'].fillna('').astype(str).tolist()]
+    age_values = []
+    if has_age_column:
+        for value in address_group['Age'].tolist():
+            if pd.isna(value):
+                age_values.append('')
+            else:
+                normalized = value.item() if hasattr(value, 'item') else value
+                age_values.append(str(normalized).strip())
+
+    coords = None
+    if has_existing_coordinates:
+        coords_rows = address_group[address_group['lng'].notna() & address_group['lat'].notna()]
+        if not coords_rows.empty:
+            first_coords = coords_rows.iloc[0]
+            coords = [first_coords['lng'], first_coords['lat']]
+
+    if not coords:
+        token = get_mapbox_token()
+        coords = geocode_address(complete_address, token)
+        time.sleep(0.2)  # Respect Mapbox rate limits only for API calls
+
     if coords:
-        results.append({
-            'first': row['FirstName'],
-            'last': row['LastName'],
-            'address': row['CompleteAddress'],
+        marker_row = {
+            'first': ', '.join(first_values),
+            'last': ', '.join(last_values),
+            'address': complete_address,
             'lng': coords[0],
             'lat': coords[1]
-        })
-    time.sleep(0.2)  # Respect Mapbox rate limits
+        }
+        if has_age_column:
+            marker_row['age'] = ', '.join(age_values)
+
+        results.append(marker_row)
 
 
 # Export to JS array or GeoJSON

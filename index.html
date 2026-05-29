@@ -1,3 +1,49 @@
+<!--
+FILE OVERVIEW
+This page is the main canvassing map application for First_Map_MapBox.
+It renders an interactive Mapbox GL map, loads household markers from markers.json,
+and uses Firebase Firestore for real-time shared marker state and notes.
+
+CORE USER FLOW
+1) User opens page and is blocked by a password overlay.
+2) On correct password, the map is initialized and controls are enabled.
+3) markers.json is fetched and each entry is added as a numbered marker.
+4) Marker interaction updates shared state in Firestore (friendly, not friendly,
+   dropped literature, flag status, and notes history).
+5) Real-time Firestore listeners keep marker color/shape/notes synchronized across clients.
+
+DATA SOURCES
+- markers.json (same folder): Marker payload with first/last name, address, lng, lat.
+- Firestore collection markerStates: Per-address canvassing state, flag, and notes.
+- Firestore doc mapSettings/markerVersion: Hash/version tracking for marker set changes.
+
+MAJOR FEATURES
+- Password-gated access UI.
+- Mapbox map with globe projection and initial spin animation.
+- Geocoder search control and browser geolocation tracking.
+- Custom current-location marker.
+- Numeric map markers with optional star/flag shape.
+- Popup checkboxes for canvassing outcomes.
+- Timestamped note entry and notes history display.
+- "Zoom to Markers" and "Zoom to Include Me" map actions.
+
+STATE BEHAVIOR
+- Default marker color is yellow.
+- Friendly -> green, Not Friendly -> orange-red, Dropped Literature -> purple.
+- Flag is independent of canvassing state and changes marker shape.
+- Reset clears canvassing status and notes while preserving live synchronization rules.
+
+DEPENDENCIES / RUNTIME REQUIREMENTS
+- Mapbox GL JS and Mapbox Geocoder plugin (CDN imports in head).
+- Firebase app + Firestore compat SDKs.
+- A valid Mapbox token entered at runtime (stored in localStorage as MAPBOX_TOKEN).
+- Serve over HTTP (for example VS Code Live Server), not file://.
+
+MAINTENANCE NOTES
+- Keep markers.json schema consistent with the fetch/render logic.
+- Address string is converted to a sanitized Firestore doc ID.
+- Any change to markers.json addresses affects version-hash reset behavior.
+-->
 <!DOCTYPE html>
 <html>
 <head>
@@ -88,6 +134,19 @@
         .hidden {
             display: none !important;
         }
+
+        /* Push popup close button to the far-right edge. */
+        .mapboxgl-popup-close-button {
+            right: -2px !important;
+            top: 0 !important;
+            left: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 18px;
+            height: 18px;
+            line-height: 18px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -176,10 +235,21 @@
             console.error('Firebase connection test failed:', error);
         });
         
-        // ADD YOUR ACCESS TOKEN FROM https://account.mapbox.com
+        // Load Mapbox token from browser storage or prompt at runtime.
         const INITIAL_CENTER = [-112, 33.3]; // Centered on the Ahwhatukee Foothills
         const INITIAL_ZOOM = 1.5; // Start zoomed out for globe effect
-        mapboxgl.accessToken = 'pk.eyJ1Ijoid2pncnA1NTE4IiwiYSI6ImNtZmxxMm01MzA3c3oyaXExMWMxamVqZWoifQ.u2vTBRK2tHKi1HwI2JkhfA';
+        let runtimeMapboxToken = localStorage.getItem('MAPBOX_TOKEN') || '';
+        if (!runtimeMapboxToken) {
+            runtimeMapboxToken = (prompt('Enter Mapbox access token:') || '').trim();
+            if (runtimeMapboxToken) {
+                localStorage.setItem('MAPBOX_TOKEN', runtimeMapboxToken);
+            }
+        }
+        if (!runtimeMapboxToken) {
+            alert('A Mapbox access token is required to load the map.');
+            return;
+        }
+        mapboxgl.accessToken = runtimeMapboxToken;
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v12',
@@ -392,6 +462,9 @@
                     // Handle comma-separated names
                     const firstNames = marker.first.split(',').map(name => name.trim());
                     const lastNames = marker.last.split(',').map(name => name.trim());
+                    const ages = (marker.age !== undefined && marker.age !== null)
+                        ? String(marker.age).split(',').map(value => value.trim())
+                        : [];
                     
                     // Create name pairs (first + last)
                     let nameLines = '';
@@ -399,7 +472,9 @@
                     for (let i = 0; i < maxNames; i++) {
                         const firstName = firstNames[i] || '';
                         const lastName = lastNames[i] || '';
-                        nameLines += `<strong>${firstName} ${lastName}</strong><br>`;
+                        const ageValue = ages[i] || '';
+                        const ageSuffix = ageValue ? ` ${ageValue}` : '';
+                        nameLines += `<strong>${firstName} ${lastName}${ageSuffix}</strong><br>`;
                     }
                     
                     popupContent.innerHTML = `
