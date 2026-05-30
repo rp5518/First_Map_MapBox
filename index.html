@@ -78,6 +78,22 @@ MAINTENANCE NOTES
             width: 150px;
             cursor: pointer;
         }
+        .map-action-button {
+            position: absolute;
+            left: 20px;
+            z-index: 10;
+            width: 150px;
+            padding: 10px;
+            background-color: #fff;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #zoom-to-markers {
+            top: 60px;
+        }
+        #zoom-to-include-me {
+            top: 100px;
+        }
         /* Password Protection Styles */
         #password-overlay {
             position: fixed;
@@ -163,8 +179,8 @@ MAINTENANCE NOTES
     </div>
 
     <div id="container" class="hidden">
-        <button id="zoom-to-markers" style="position:absolute;top:60px;left:20px;z-index:2;width:150px;padding:10px;background-color:#fff;">Zoom to Markers</button>
-        <button id="zoom-to-include-me" style="position:absolute;top:100px;left:20px;z-index:2;width:150px;padding:10px;background-color:#fff;">Zoom to Include Me</button>
+        <button id="zoom-to-markers" class="map-action-button">Zoom to Markers</button>
+        <button id="zoom-to-include-me" class="map-action-button">Zoom to Include Me</button>
         <div id="map"></div>
     </div>
     <!-- Firebase SDKs -->
@@ -826,8 +842,30 @@ MAINTENANCE NOTES
         map.on('wheel', pauseSpinning);
         map.on('touchstart', pauseSpinning);
 
+        function bindMapActionButton(buttonId, handler) {
+            const button = document.getElementById(buttonId);
+            let handledTouch = false;
+
+            button.addEventListener('touchend', (event) => {
+                event.preventDefault();
+                handledTouch = true;
+                handler();
+                setTimeout(() => {
+                    handledTouch = false;
+                }, 0);
+            }, { passive: false });
+
+            button.addEventListener('click', (event) => {
+                if (handledTouch) {
+                    return;
+                }
+                event.preventDefault();
+                handler();
+            });
+        }
+
         // Zoom to Markers
-        document.getElementById('zoom-to-markers').addEventListener('click', () => {
+        bindMapActionButton('zoom-to-markers', () => {
             pauseSpinning();
             if (markerObjects.length === 0) return;
             const bounds = new mapboxgl.LngLatBounds();
@@ -842,7 +880,7 @@ MAINTENANCE NOTES
         });
 
         // Zoom to Include Me
-        document.getElementById('zoom-to-include-me').addEventListener('click', () => {
+        bindMapActionButton('zoom-to-include-me', () => {
             pauseSpinning();
             if (markerObjects.length === 0 && !currentLocationMarker) return;
             
