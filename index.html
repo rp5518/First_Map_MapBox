@@ -11,6 +11,7 @@ CORE USER FLOW
 4) Marker interaction updates shared state in Firestore (friendly, not friendly,
    dropped literature, flag status, and notes history).
 5) Real-time Firestore listeners keep marker color/shape/notes synchronized across clients.
+6) Bulk reset is admin-gated: user must unlock admin controls before reset is visible.
 
 DATA SOURCES
 - markers.json (same folder): Marker payload with first/last name, address, lng, lat.
@@ -19,6 +20,7 @@ DATA SOURCES
 
 MAJOR FEATURES
 - Password-gated access UI.
+- Separate admin unlock gate for bulk reset controls.
 - Mapbox map with globe projection and initial spin animation.
 - Geocoder search control and browser geolocation tracking.
 - Custom current-location marker.
@@ -26,23 +28,30 @@ MAJOR FEATURES
 - Popup checkboxes for canvassing outcomes.
 - Timestamped note entry and notes history display.
 - "Zoom to Markers" and "Zoom to Include Me" map actions.
+- Bulk reset modes: state-only, state+notes, and full reset (state+notes+flags).
+- Automatic relock after successful bulk reset (returns to Admin Unlock state).
 
 STATE BEHAVIOR
 - Default marker color is yellow.
 - Friendly -> green, Not Friendly -> orange-red, Dropped Literature -> purple.
 - Flag is independent of canvassing state and changes marker shape.
-- Reset clears canvassing status and notes while preserving live synchronization rules.
+- Single-marker Reset clears canvassing status and notes for that marker.
+- Bulk reset mode 1 resets canvassing state only (preserves notes and flags).
+- Bulk reset mode 2 resets canvassing state and clears notes (preserves flags).
+- Bulk reset mode 3 resets canvassing state, clears notes, and removes flags.
 
 DEPENDENCIES / RUNTIME REQUIREMENTS
 - Mapbox GL JS and Mapbox Geocoder plugin (CDN imports in head).
 - Firebase app + Firestore compat SDKs.
 - A valid Mapbox token from local-config.js, localStorage, or built-in public fallback.
+- reset-markers.js module (loaded via dynamic import during bulk reset).
 - Serve over HTTP (for example VS Code Live Server), not file://.
 
 MAINTENANCE NOTES
 - Keep markers.json schema consistent with the fetch/render logic.
 - Address string is converted to a sanitized Firestore doc ID.
 - Any change to markers.json addresses affects version-hash reset behavior.
+- Bulk reset helpers are module-scoped exports (not attached to window globals).
 -->
 <!DOCTYPE html>
 <html>
@@ -93,6 +102,14 @@ MAINTENANCE NOTES
         }
         #zoom-to-include-me {
             top: 100px;
+        }
+        #reset-all-markers {
+            top: 140px;
+            background-color: #fff7e6;
+        }
+        #unlock-admin-reset {
+            top: 140px;
+            background-color: #eaf4ff;
         }
         /* Password Protection Styles */
         #password-overlay {
@@ -181,6 +198,8 @@ MAINTENANCE NOTES
     <div id="container" class="hidden">
         <button id="zoom-to-markers" class="map-action-button">Zoom to Markers</button>
         <button id="zoom-to-include-me" class="map-action-button">Zoom to Include Me</button>
+        <button id="unlock-admin-reset" class="map-action-button">Admin Unlock</button>
+        <button id="reset-all-markers" class="map-action-button hidden">Reset All Markers</button>
         <div id="map"></div>
     </div>
     <!-- Firebase SDKs -->
@@ -189,6 +208,7 @@ MAINTENANCE NOTES
     <script>
         // Password Protection
         const CORRECT_PASSWORD = "Win2026"; // Change this to your desired password
+        const ADMIN_RESET_CODE = "Reset2026"; // Separate admin code for bulk reset
         
         document.addEventListener('DOMContentLoaded', function() {
             const passwordOverlay = document.getElementById('password-overlay');
@@ -196,6 +216,25 @@ MAINTENANCE NOTES
             const passwordSubmit = document.getElementById('password-submit');
             const passwordError = document.getElementById('password-error');
             const container = document.getElementById('container');
+            const unlockAdminButton = document.getElementById('unlock-admin-reset');
+            const resetAllButton = document.getElementById('reset-all-markers');
+
+            function requestAdminResetUnlock() {
+                const enteredCode = window.prompt('Enter admin reset code to enable bulk marker reset:');
+                if (enteredCode === null) {
+                    return false;
+                }
+
+                if (enteredCode === ADMIN_RESET_CODE) {
+                    resetAllButton.classList.remove('hidden');
+                    unlockAdminButton.classList.add('hidden');
+                    alert('Admin controls enabled.');
+                    return true;
+                }
+
+                alert('Invalid admin reset code.');
+                return false;
+            }
 
             // Handle password submission
             function checkPassword() {
@@ -204,6 +243,9 @@ MAINTENANCE NOTES
                     // Correct password - hide overlay and show map
                     passwordOverlay.classList.add('hidden');
                     container.classList.remove('hidden');
+                    // Keep bulk reset hidden until admin code is entered after login.
+                    resetAllButton.classList.add('hidden');
+                    unlockAdminButton.classList.remove('hidden');
                     // Initialize the map after password is correct
                     initializeMap();
                 } else {
@@ -226,6 +268,8 @@ MAINTENANCE NOTES
             passwordInput.addEventListener('input', function() {
                 passwordError.style.display = 'none';
             });
+
+            unlockAdminButton.addEventListener('click', requestAdminResetUnlock);
         });
 
         // Move map initialization into a function
@@ -243,6 +287,13 @@ MAINTENANCE NOTES
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+
+        // Expose the reset context for reset-markers.js.
+        window.__markerResetContext = {
+            db,
+            markersUrl: 'markers.json',
+            createAddressId: (address) => address.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
+        };
 
         // Test Firebase connection
         console.log('Firebase initialized, testing connection...');
@@ -902,6 +953,26 @@ MAINTENANCE NOTES
                 padding: 50,
                 maxZoom: 16 // Prevent zooming in too close
             });
+        });
+
+        // Reset all markers using module-scoped helper functions.
+        bindMapActionButton('reset-all-markers', async () => {
+            pauseSpinning();
+            try {
+                const resetModule = await import('./reset-markers.js');
+                const result = await resetModule.resetAllMarkersWithPrompt(window.__markerResetContext);
+
+                // Re-lock admin reset controls only after a reset actually runs.
+                if (result && !result.cancelled) {
+                    const unlockAdminButton = document.getElementById('unlock-admin-reset');
+                    const resetAllButton = document.getElementById('reset-all-markers');
+                    resetAllButton.classList.add('hidden');
+                    unlockAdminButton.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Bulk reset failed:', error);
+                alert(`Bulk reset failed: ${error.message || error}`);
+            }
         });
         
         // Function to create safe document ID from address (global scope)
