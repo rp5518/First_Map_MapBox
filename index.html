@@ -11,7 +11,7 @@ CORE USER FLOW
 4) Marker interaction updates shared state in Firestore (friendly, not friendly,
    dropped literature, flag status, and notes history).
 5) Real-time Firestore listeners keep marker color/shape/notes synchronized across clients.
-6) Bulk reset is admin-gated: user must unlock admin controls before reset is visible.
+6) Bulk reset is admin-gated and desktop-only: user must unlock admin controls before reset is visible.
 
 DATA SOURCES
 - markers.json (same folder): Marker payload with first/last name, address, lng, lat.
@@ -20,7 +20,7 @@ DATA SOURCES
 
 MAJOR FEATURES
 - Password-gated access UI.
-- Separate admin unlock gate for bulk reset controls.
+- Separate admin unlock gate for bulk reset controls on desktop-class devices only.
 - Mapbox map with globe projection and initial spin animation.
 - Geocoder search control and browser geolocation tracking.
 - Custom current-location marker.
@@ -209,6 +209,7 @@ MAINTENANCE NOTES
         // Password Protection
         const CORRECT_PASSWORD = "Win2026"; // Change this to your desired password
         const ADMIN_RESET_CODE = "Reset2026"; // Separate admin code for bulk reset
+        const DESKTOP_ADMIN_MEDIA_QUERY = '(min-width: 900px) and (pointer: fine)';
         
         document.addEventListener('DOMContentLoaded', function() {
             const passwordOverlay = document.getElementById('password-overlay');
@@ -218,8 +219,31 @@ MAINTENANCE NOTES
             const container = document.getElementById('container');
             const unlockAdminButton = document.getElementById('unlock-admin-reset');
             const resetAllButton = document.getElementById('reset-all-markers');
+            const desktopAdminMedia = window.matchMedia(DESKTOP_ADMIN_MEDIA_QUERY);
+
+            function canShowAdminResetControls() {
+                return desktopAdminMedia.matches;
+            }
+
+            function syncAdminResetControls() {
+                if (!canShowAdminResetControls()) {
+                    unlockAdminButton.classList.add('hidden');
+                    resetAllButton.classList.add('hidden');
+                    return;
+                }
+
+                if (resetAllButton.classList.contains('hidden')) {
+                    unlockAdminButton.classList.remove('hidden');
+                } else {
+                    unlockAdminButton.classList.add('hidden');
+                }
+            }
 
             function requestAdminResetUnlock() {
+                if (!canShowAdminResetControls()) {
+                    return false;
+                }
+
                 const enteredCode = window.prompt('Enter admin reset code to enable bulk marker reset:');
                 if (enteredCode === null) {
                     return false;
@@ -243,9 +267,9 @@ MAINTENANCE NOTES
                     // Correct password - hide overlay and show map
                     passwordOverlay.classList.add('hidden');
                     container.classList.remove('hidden');
-                    // Keep bulk reset hidden until admin code is entered after login.
+                    // Only show admin reset controls on desktop-class devices.
                     resetAllButton.classList.add('hidden');
-                    unlockAdminButton.classList.remove('hidden');
+                    syncAdminResetControls();
                     // Initialize the map after password is correct
                     initializeMap();
                 } else {
@@ -270,6 +294,7 @@ MAINTENANCE NOTES
             });
 
             unlockAdminButton.addEventListener('click', requestAdminResetUnlock);
+            desktopAdminMedia.addEventListener('change', syncAdminResetControls);
         });
 
         // Move map initialization into a function
