@@ -115,12 +115,20 @@ export async function resetAllMarkers(context, userOptions) {
     return summary;
 }
 
-export async function resetAllMarkersWithPrompt(context) {
+export async function resetAllMarkersWithPrompt(context, userOptions) {
+    const options = Object.assign(
+        {
+            addresses: null,
+            scopeLabel: 'all markers'
+        },
+        userOptions || {}
+    );
+
     const modeInput = window.prompt(
         'Choose reset mode:\n' +
-        '1) Reset all markers (preserve notes and flags) [recommended]\n' +
-        '2) Reset all markers + clear notes (preserve flags)\n' +
-        '3) Full reset (clear notes and flags)\n\n' +
+        '1) Reset selected markers (preserve notes and flags) [recommended]\n' +
+        '2) Reset selected markers + clear notes (preserve flags)\n' +
+        '3) Full reset selected markers (clear notes and flags)\n\n' +
         'Enter 1, 2, or 3:',
         '1'
     );
@@ -139,7 +147,7 @@ export async function resetAllMarkersWithPrompt(context) {
     const clearFlags = normalizedMode === '3';
 
     const proceed = window.confirm(
-        'Reset all markers now?\n\n' +
+        'Reset ' + options.scopeLabel + ' now?\n\n' +
         'State: reset to default\n' +
         'Notes: ' + (clearNotes ? 'clear' : 'preserve') + '\n' +
         'Flags: ' + (clearFlags ? 'reset' : 'preserve')
@@ -151,9 +159,10 @@ export async function resetAllMarkersWithPrompt(context) {
 
     const result = await resetAllMarkers(context, {
         clearNotes,
-        clearFlags
+        clearFlags,
+        addresses: options.addresses
     });
 
-    window.alert('Reset complete. Updated ' + result.updated + ' marker records.');
+    window.alert('Reset complete for ' + options.scopeLabel + '. Updated ' + result.updated + ' marker records.');
     return result;
 }
