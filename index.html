@@ -8,13 +8,16 @@ CORE USER FLOW
 1) User opens page and is blocked by a password overlay.
 2) On correct password, the map is initialized and controls are enabled.
 3) markers.json is fetched and each entry is added as a numbered marker.
-4) Marker interaction updates shared state in Firestore (friendly, not friendly,
+4) If zone metadata exists, the zone selector is shown. Choosing a zone immediately
+    filters visible markers and auto-zooms to those markers.
+5) Marker interaction updates shared state in Firestore (friendly, not friendly,
    dropped literature, flag status, and notes history).
-5) Real-time Firestore listeners keep marker color/shape/notes synchronized across clients.
-6) Bulk reset is admin-gated and desktop-only: user must unlock admin controls before reset is visible.
+6) Real-time Firestore listeners keep marker color/shape/notes synchronized across clients.
+7) Bulk reset is admin-gated and desktop-only: user must unlock admin controls before reset is visible.
 
 DATA SOURCES
-- markers.json (same folder): Marker payload with first/last name, address, lng, lat.
+- markers.json (same folder): Marker payload with first/last name, address, lng, lat,
+  and optional zone values.
 - Firestore collection markerStates: Per-address canvassing state, flag, and notes.
 - Firestore doc mapSettings/markerVersion: Hash/version tracking for marker set changes.
 
@@ -25,11 +28,13 @@ MAJOR FEATURES
 - Geocoder search control and browser geolocation tracking.
 - Custom current-location marker.
 - Numeric map markers with optional star/flag shape.
-- Optional zone selector that filters markers only when zone data exists in markers.json.
+- Optional zone selector shown only when zone data exists in markers.json.
+- Zone selection immediately performs a zoom-to-visible-markers fit.
 - Popup checkboxes for canvassing outcomes.
 - Timestamped note entry and notes history display.
-- "Zoom to Markers" and "Zoom to Include Me" map actions.
+- "Zoom to Include Me" map action.
 - Bulk reset modes: state-only, state+notes, and full reset (state+notes+flags).
+- Bulk reset can target all markers or only markers in the selected zone.
 - Automatic relock after successful bulk reset (returns to Admin Unlock state).
 
 STATE BEHAVIOR
@@ -122,11 +127,8 @@ MAINTENANCE NOTES
             font-size: 13px;
             box-sizing: border-box;
         }
-        #zoom-to-markers {
-            top: 60px;
-        }
         #zoom-to-include-me {
-            top: 100px;
+            top: 60px;
         }
         #reset-all-markers {
             top: 140px;
@@ -227,7 +229,6 @@ MAINTENANCE NOTES
                 <option value="all">All Zones</option>
             </select>
         </div>
-        <button id="zoom-to-markers" class="map-action-button hidden">Zoom to Markers</button>
         <button id="zoom-to-include-me" class="map-action-button hidden">Zoom to Include Me</button>
         <button id="unlock-admin-reset" class="map-action-button">Admin Unlock</button>
         <button id="reset-all-markers" class="map-action-button hidden">Reset All Markers</button>
@@ -478,7 +479,6 @@ MAINTENANCE NOTES
         let markerObjects = [];
         const zoneFilterPanel = document.getElementById('zone-filter-panel');
         const zoneSelect = document.getElementById('zone-select');
-        const zoomToMarkersButton = document.getElementById('zoom-to-markers');
         const zoomToIncludeMeButton = document.getElementById('zoom-to-include-me');
         let zoneFilteringEnabled = false;
         let requiresZoneSelection = false;
@@ -531,6 +531,21 @@ MAINTENANCE NOTES
             });
         }
 
+        function zoomToVisibleMarkersNow() {
+            const visibleMarkers = getVisibleMarkers();
+            if (visibleMarkers.length === 0) return;
+
+            // Stop the globe animation and force a resize before fitting.
+            // This prevents occasional blank-map frames on some mobile browsers.
+            pauseSpinning();
+            map.resize();
+
+            // Defer fit one frame so marker add/remove operations are settled first.
+            requestAnimationFrame(() => {
+                fitToMarkers(getVisibleMarkers());
+            });
+        }
+
         function applyZoneFilter(selectedZone, shouldFit = false) {
             if (!zoneFilteringEnabled) return;
 
@@ -552,12 +567,12 @@ MAINTENANCE NOTES
         }
 
         function setMainMapButtonsVisible(visible) {
-            zoomToMarkersButton.classList.toggle('hidden', !visible);
             zoomToIncludeMeButton.classList.toggle('hidden', !visible);
         }
 
         function lockZoneSelection(selectedZone) {
-            applyZoneFilter(selectedZone, true);
+            applyZoneFilter(selectedZone, false);
+            zoomToVisibleMarkersNow();
             if (selectedZone === 'all') {
                 // Keep the panel visible and allow zooming across all markers.
                 zoneFilterPanel.classList.remove('hidden');
@@ -1140,14 +1155,6 @@ MAINTENANCE NOTES
                 handler();
             });
         }
-
-        // Zoom to Markers
-        bindMapActionButton('zoom-to-markers', () => {
-            pauseSpinning();
-            const visibleMarkers = getVisibleMarkers();
-            if (visibleMarkers.length === 0) return;
-            fitToMarkers(visibleMarkers);
-        });
 
         // Zoom to Include Me
         bindMapActionButton('zoom-to-include-me', () => {
