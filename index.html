@@ -25,6 +25,7 @@ MAJOR FEATURES
 - Geocoder search control and browser geolocation tracking.
 - Custom current-location marker.
 - Numeric map markers with optional star/flag shape.
+- Optional zone selector that filters markers only when zone data exists in markers.json.
 - Popup checkboxes for canvassing outcomes.
 - Timestamped note entry and notes history display.
 - "Zoom to Markers" and "Zoom to Include Me" map actions.
@@ -96,6 +97,30 @@ MAINTENANCE NOTES
             background-color: #fff;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
+        }
+        #zone-filter-panel {
+            top: 20px;
+            width: 180px;
+            padding: 8px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+        }
+        #zone-filter-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #1f2937;
+        }
+        #zone-select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #cfd4dc;
+            border-radius: 6px;
+            font-size: 13px;
+            box-sizing: border-box;
         }
         #zoom-to-markers {
             top: 60px;
@@ -196,8 +221,14 @@ MAINTENANCE NOTES
     </div>
 
     <div id="container" class="hidden">
-        <button id="zoom-to-markers" class="map-action-button">Zoom to Markers</button>
-        <button id="zoom-to-include-me" class="map-action-button">Zoom to Include Me</button>
+        <div id="zone-filter-panel" class="map-action-button hidden">
+            <label id="zone-filter-label" for="zone-select">View Zone</label>
+            <select id="zone-select">
+                <option value="all">All Zones</option>
+            </select>
+        </div>
+        <button id="zoom-to-markers" class="map-action-button hidden">Zoom to Markers</button>
+        <button id="zoom-to-include-me" class="map-action-button hidden">Zoom to Include Me</button>
         <button id="unlock-admin-reset" class="map-action-button">Admin Unlock</button>
         <button id="reset-all-markers" class="map-action-button hidden">Reset All Markers</button>
         <div id="map"></div>
@@ -445,6 +476,156 @@ MAINTENANCE NOTES
 
         // Store marker references and visited state
         let markerObjects = [];
+        const zoneFilterPanel = document.getElementById('zone-filter-panel');
+        const zoneSelect = document.getElementById('zone-select');
+        const zoomToMarkersButton = document.getElementById('zoom-to-markers');
+        const zoomToIncludeMeButton = document.getElementById('zoom-to-include-me');
+        let zoneFilteringEnabled = false;
+        let requiresZoneSelection = false;
+
+        function normalizeZoneLabel(zoneValue) {
+            const raw = String(zoneValue || '').trim();
+            if (!raw) return '';
+
+            const numericMatch = raw.match(/^#?\s*(\d+)$/);
+            if (numericMatch) return `Zone #${numericMatch[1]}`;
+
+            const zoneMatch = raw.match(/^zone\s*#?\s*(\d+)$/i);
+            if (zoneMatch) return `Zone #${zoneMatch[1]}`;
+
+            return raw;
+        }
+
+        function getMarkerZone(marker) {
+            return normalizeZoneLabel(marker.zone || marker.assignedZone || marker.zoneNumber || marker.zone_id || '');
+        }
+
+        function sortZoneLabels(a, b) {
+            const aMatch = a.match(/^Zone #(\d+)$/i);
+            const bMatch = b.match(/^Zone #(\d+)$/i);
+
+            if (aMatch && bMatch) {
+                return Number(aMatch[1]) - Number(bMatch[1]);
+            }
+            if (aMatch) return -1;
+            if (bMatch) return 1;
+            return a.localeCompare(b);
+        }
+
+        function getVisibleMarkers() {
+            return zoneFilteringEnabled ? markerObjects.filter(obj => obj.isVisible) : markerObjects;
+        }
+
+        function fitToMarkers(markerList) {
+            if (!markerList || markerList.length === 0) return;
+
+            const bounds = new mapboxgl.LngLatBounds();
+            markerList.forEach(obj => {
+                const lngLat = obj.marker.getLngLat();
+                bounds.extend([lngLat.lng, lngLat.lat]);
+            });
+
+            map.fitBounds(bounds, {
+                padding: 50,
+                maxZoom: 16
+            });
+        }
+
+        function applyZoneFilter(selectedZone, shouldFit = false) {
+            if (!zoneFilteringEnabled) return;
+
+            markerObjects.forEach(obj => {
+                const shouldShow = selectedZone === 'all' || obj.zone === selectedZone;
+
+                if (shouldShow && !obj.isVisible) {
+                    obj.marker.addTo(map);
+                    obj.isVisible = true;
+                } else if (!shouldShow && obj.isVisible) {
+                    obj.marker.remove();
+                    obj.isVisible = false;
+                }
+            });
+
+            if (shouldFit) {
+                fitToMarkers(getVisibleMarkers());
+            }
+        }
+
+        function setMainMapButtonsVisible(visible) {
+            zoomToMarkersButton.classList.toggle('hidden', !visible);
+            zoomToIncludeMeButton.classList.toggle('hidden', !visible);
+        }
+
+        function lockZoneSelection(selectedZone) {
+            applyZoneFilter(selectedZone, true);
+            if (selectedZone === 'all') {
+                // Keep the panel visible and allow zooming across all markers.
+                zoneFilterPanel.classList.remove('hidden');
+                setMainMapButtonsVisible(true);
+            } else {
+                // A specific zone was chosen — hide the panel and show zoom buttons.
+                requiresZoneSelection = false;
+                zoneFilterPanel.classList.add('hidden');
+                setMainMapButtonsVisible(true);
+            }
+        }
+
+        function initializeZoneFilter(markers) {
+            const zones = new Set();
+
+            markers.forEach(marker => {
+                const zone = getMarkerZone(marker);
+                if (zone) {
+                    zones.add(zone);
+                }
+            });
+
+            if (zones.size === 0) {
+                zoneFilteringEnabled = false;
+                zoneFilterPanel.classList.add('hidden');
+                zoneSelect.value = 'all';
+                setMainMapButtonsVisible(true);
+                return;
+            }
+
+            zoneFilteringEnabled = true;
+
+            const zoneList = Array.from(zones).sort(sortZoneLabels);
+            zoneSelect.innerHTML = '';
+
+            requiresZoneSelection = zoneList.length > 1;
+            if (requiresZoneSelection) {
+                const selectPromptOption = document.createElement('option');
+                selectPromptOption.value = '';
+                selectPromptOption.textContent = 'Select a Zone';
+                zoneSelect.appendChild(selectPromptOption);
+            }
+
+            const allZonesOption = document.createElement('option');
+            allZonesOption.value = 'all';
+            allZonesOption.textContent = 'All Zones';
+            zoneSelect.appendChild(allZonesOption);
+
+            zoneList.forEach(zone => {
+                const option = document.createElement('option');
+                option.value = zone;
+                option.textContent = zone;
+                zoneSelect.appendChild(option);
+            });
+
+            if (requiresZoneSelection) {
+                setMainMapButtonsVisible(false);
+                zoneFilterPanel.classList.remove('hidden');
+                zoneSelect.value = '';
+                applyZoneFilter('', false);
+            } else {
+                const defaultZone = zoneList[0];
+                zoneSelect.value = defaultZone;
+                zoneFilterPanel.classList.add('hidden');
+                setMainMapButtonsVisible(true);
+                applyZoneFilter(defaultZone, true);
+            }
+        }
 
         // Function to create a custom marker element with a visible numeric label
         function createMarkerElement(label) {
@@ -499,6 +680,8 @@ MAINTENANCE NOTES
             .then(markers => {
                 console.log('Loading markers...', markers.length, 'markers found');
                 console.log('First marker:', markers[0]);
+
+                initializeZoneFilter(markers);
                 
                 // Create marker hash for version tracking
                 const currentMarkersHash = JSON.stringify(markers.map(m => m.address).sort());
@@ -547,6 +730,7 @@ MAINTENANCE NOTES
                 markers.forEach((marker, idx) => {
                 console.log(`Creating marker ${idx + 1} for:`, marker.address);
                 const markerEl = createMarkerElement(idx + 1);
+                const markerZone = getMarkerZone(marker);
                 // Ensure all new markers start in default state (yellow, no flags)
                 markerEl.style.backgroundColor = '#FFFF00'; // Default yellow
                 setMarkerShape(markerEl, false, idx + 1); // No flag by default
@@ -574,6 +758,7 @@ MAINTENANCE NOTES
                     popupContent.innerHTML = `
                         ${nameLines}
                         ${marker.address}<br>
+                        ${markerZone ? `<small><strong>Zone:</strong> ${markerZone}</small><br>` : ''}
                         <label>
                             <input type="checkbox" id="visited-${idx}"> Dropped Literature
                         </label><br>
@@ -670,7 +855,9 @@ MAINTENANCE NOTES
                         idx: idx, 
                         markerEl: markerEl, 
                         popupContent: popupContent,
-                        address: marker.address 
+                        address: marker.address,
+                        zone: markerZone,
+                        isVisible: true
                     });
 
                     const visitedBox = popupContent.querySelector(`#visited-${idx}`);
@@ -876,6 +1063,20 @@ MAINTENANCE NOTES
                         }
                     });
                 });
+
+                if (zoneFilteringEnabled) {
+                    applyZoneFilter(zoneSelect.value, true);
+                }
+
+                if (zoneFilteringEnabled) {
+                    zoneSelect.addEventListener('change', () => {
+                        if (!zoneSelect.value) {
+                            applyZoneFilter('', false);
+                            return;
+                        }
+                        lockZoneSelection(zoneSelect.value);
+                    });
+                }
             })
             .catch(error => {
                 console.error('Error loading markers.json:', error);
@@ -943,27 +1144,21 @@ MAINTENANCE NOTES
         // Zoom to Markers
         bindMapActionButton('zoom-to-markers', () => {
             pauseSpinning();
-            if (markerObjects.length === 0) return;
-            const bounds = new mapboxgl.LngLatBounds();
-            markerObjects.forEach(obj => {
-                const lngLat = obj.marker.getLngLat();
-                bounds.extend([lngLat.lng, lngLat.lat]);
-            });
-            map.fitBounds(bounds, {
-                padding: 50,
-                maxZoom: 16 // Prevent zooming in too close
-            });
+            const visibleMarkers = getVisibleMarkers();
+            if (visibleMarkers.length === 0) return;
+            fitToMarkers(visibleMarkers);
         });
 
         // Zoom to Include Me
         bindMapActionButton('zoom-to-include-me', () => {
             pauseSpinning();
-            if (markerObjects.length === 0 && !currentLocationMarker) return;
+            const visibleMarkers = getVisibleMarkers();
+            if (visibleMarkers.length === 0 && !currentLocationMarker) return;
             
             const bounds = new mapboxgl.LngLatBounds();
             
             // Add all marker locations to bounds
-            markerObjects.forEach(obj => {
+            visibleMarkers.forEach(obj => {
                 const lngLat = obj.marker.getLngLat();
                 bounds.extend([lngLat.lng, lngLat.lat]);
             });
@@ -985,7 +1180,26 @@ MAINTENANCE NOTES
             pauseSpinning();
             try {
                 const resetModule = await import('./reset-markers.js');
-                const result = await resetModule.resetAllMarkersWithPrompt(window.__markerResetContext);
+                let addressesToReset = null;
+                let resetScopeLabel = 'all markers';
+
+                if (zoneFilteringEnabled && zoneSelect.value && zoneSelect.value !== 'all') {
+                    const selectedZone = zoneSelect.value;
+                    addressesToReset = markerObjects
+                        .filter(obj => obj.zone === selectedZone)
+                        .map(obj => obj.address);
+                    resetScopeLabel = `markers in ${selectedZone}`;
+
+                    if (addressesToReset.length === 0) {
+                        alert(`No markers found for ${selectedZone}.`);
+                        return;
+                    }
+                }
+
+                const result = await resetModule.resetAllMarkersWithPrompt(window.__markerResetContext, {
+                    addresses: addressesToReset,
+                    scopeLabel: resetScopeLabel
+                });
 
                 // Re-lock admin reset controls only after a reset actually runs.
                 if (result && !result.cancelled) {
