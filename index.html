@@ -3,6 +3,8 @@ FILE OVERVIEW
 This page is the main canvassing map application for First_Map_MapBox.
 It renders an interactive Mapbox GL map, loads household markers from markers.json,
 and uses Firebase Firestore for real-time shared marker state and notes.
+Marker popups display household names plus optional Age and Party values when
+they are present in the marker data.
 
 CORE USER FLOW
 1) User opens page and is blocked by a password overlay.
@@ -17,7 +19,7 @@ CORE USER FLOW
 
 DATA SOURCES
 - markers.json (same folder): Marker payload with first/last name, address, lng, lat,
-  and optional zone values.
+    and optional age, party, and zone values.
 - Firestore collection markerStates: Per-address canvassing state, flag, and notes.
 - Firestore doc mapSettings/markerVersion: Hash/version tracking for marker set changes.
 
@@ -31,6 +33,7 @@ MAJOR FEATURES
 - Optional zone selector shown only when zone data exists in markers.json.
 - Zone selection immediately performs a zoom-to-visible-markers fit.
 - Popup checkboxes for canvassing outcomes.
+- Popup name lines can show Age and Party information from markers.json.
 - Timestamped note entry and notes history display.
 - "Zoom to Include Me" map action.
 - Bulk reset modes: state-only, state+notes, and full reset (state+notes+flags).
@@ -758,6 +761,11 @@ MAINTENANCE NOTES
                     const ages = (marker.age !== undefined && marker.age !== null)
                         ? String(marker.age).split(',').map(value => value.trim())
                         : [];
+                    const parties = (marker.party !== undefined && marker.party !== null)
+                        ? String(marker.party).split(',').map(value => value.trim())
+                        : ((marker.Party !== undefined && marker.Party !== null)
+                            ? String(marker.Party).split(',').map(value => value.trim())
+                            : []);
                     
                     // Create name pairs (first + last)
                     let nameLines = '';
@@ -766,8 +774,12 @@ MAINTENANCE NOTES
                         const firstName = firstNames[i] || '';
                         const lastName = lastNames[i] || '';
                         const ageValue = ages[i] || '';
-                        const ageSuffix = ageValue ? ` ${ageValue}` : '';
-                        nameLines += `<strong>${firstName} ${lastName}${ageSuffix}</strong><br>`;
+                        const partyValue = parties[i] || '';
+                        const suffixParts = [];
+                        if (ageValue) suffixParts.push(ageValue);
+                        if (partyValue) suffixParts.push(partyValue);
+                        const personSuffix = suffixParts.length ? ` ${suffixParts.join(' ')}` : '';
+                        nameLines += `<strong>${firstName} ${lastName}${personSuffix}</strong><br>`;
                     }
                     
                     popupContent.innerHTML = `
