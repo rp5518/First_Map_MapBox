@@ -18,7 +18,9 @@ DRIVING DISTANCE SORT SCRIPT - Ran Interactively in Jupyter Notebook "Run Below"
 This script processes an Excel file containing contact information with addresses and performs the following operations:
 
 1. INPUTS: Prompts user for an Excel file path containing columns:
-   - FirstName, LastName, FullStreetAddress, Zip, Age/Party
+    - FirstName, LastName, FullStreetAddress, Zip
+    - Optional: Age or Age/Party
+    - Optional party source columns: Party, CalculatedParty, or OfficialParty
 
 2. GEOCODING: Uses Mapbox Geocoding API to convert each address (FullStreetAddress + Zip) 
    into latitude/longitude coordinates for mapping purposes
@@ -32,9 +34,16 @@ This script processes an Excel file containing contact information with addresse
 4. SORTING: Sorts all addresses by their distance from the first address (closest to farthest)
 
 5. OUTPUT: Creates a new Excel file "Driving_Distance.xlsx" with columns:
-   - FirstName, LastName, FullStreetAddress, Zip, Age/Party, lng, lat, distance_in_feet
+    - FirstName, LastName, FullStreetAddress, Zip, Age, Party, lng, lat, distance_in_feet
    - Auto-sized columns for optimal viewing
    - Sorted by distance from the first address
+
+6. PARTY NORMALIZATION:
+    - Source priority: Party -> CalculatedParty -> OfficialParty -> Age/Party
+    - Any value containing "republican" maps to "Rep"
+    - Any value containing "democrat" maps to "Dem"
+    - Any value containing "swing" maps to "Ind"
+    - All other values default to "Ind"
 
 Use case: Organizing contact lists by actual travel distance for canvassing, delivery routes, or territorial planning.
 """
@@ -100,23 +109,48 @@ if 'FullStreetAddress' not in df.columns:
 
     print("Constructed 'FullStreetAddress' from primary street component columns.")
 
-# Support two input schemas for age and party information.
-# If Age/Party is missing, construct it from Age and OfficialParty columns.
-if 'Age/Party' not in df.columns:
-    age_party_parts = ['Age', 'OfficialParty']
-    missing_parts = [col for col in age_party_parts if col not in df.columns]
-    if missing_parts:
-        raise ValueError(
-            "Excel file must include either 'Age/Party' or both of "
-            f"{age_party_parts}. Missing: {missing_parts}"
-        )
-    
-    df['Age/Party'] = (
-        df['Age'].fillna('').astype(str).str.strip() + ' ' +
-        df['OfficialParty'].fillna('').astype(str).str.strip()
-    ).str.replace(r'\s+', ' ', regex=True).str.strip()
-    
-    print("Constructed 'Age/Party' from 'Age' and 'OfficialParty' columns.")
+# Normalize Age for output. Prefer Age; if missing, try to parse leading number from Age/Party.
+if 'Age' in df.columns:
+    df['Age'] = df['Age'].fillna('').astype(str).str.strip()
+elif 'Age/Party' in df.columns:
+    df['Age'] = (
+        df['Age/Party']
+        .fillna('')
+        .astype(str)
+        .str.extract(r'^(\d+)')[0]
+        .fillna('')
+        .str.strip()
+    )
+    print("Constructed 'Age' from 'Age/Party'.")
+else:
+    df['Age'] = ''
+
+# Build normalized Party with source priority:
+# Party -> CalculatedParty -> OfficialParty -> Age/Party
+# Keyword mapping: republican => Rep, democrat => Dem, swing => Ind, else Ind.
+party_source_col = None
+if 'Party' in df.columns:
+    party_source_col = 'Party'
+elif 'CalculatedParty' in df.columns:
+    party_source_col = 'CalculatedParty'
+elif 'OfficialParty' in df.columns:
+    party_source_col = 'OfficialParty'
+
+if party_source_col is not None:
+    party_raw = df[party_source_col].fillna('').astype(str).str.strip().str.lower()
+elif 'Age/Party' in df.columns:
+    party_raw = df['Age/Party'].fillna('').astype(str).str.strip().str.lower()
+    party_source_col = 'Age/Party'
+else:
+    party_raw = pd.Series([''] * len(df), index=df.index)
+
+df['Party'] = 'Ind'
+df.loc[party_raw.str.contains('republican', regex=False), 'Party'] = 'Rep'
+df.loc[party_raw.str.contains('democrat', regex=False), 'Party'] = 'Dem'
+df.loc[party_raw.str.contains('swing', regex=False), 'Party'] = 'Ind'
+
+if party_source_col is not None:
+    print(f"Constructed normalized 'Party' from '{party_source_col}'.")
 
 # Geocode and collect results
 results = []
@@ -147,7 +181,11 @@ for idx, row in df.iterrows():
         
         result_row.update({
             'Zip': row['Zip'],
-            'Age/Party': row['Age/Party'],
+            'Age': row['Age'],
+            'Party': row['Party'],
+        })
+
+        result_row.update({
             'lng': coords[0],
             'lat': coords[1],
             'distance_in_feet': distance_feet
