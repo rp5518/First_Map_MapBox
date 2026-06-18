@@ -12,7 +12,12 @@ RADIAL DISTANCE SORT SCRIPT - Ran Interactively in Jupyter Notebook "Run Below"
 This script processes an Excel file containing contact information with addresses and performs the following operations:
 
 1. INPUTS: Prompts user for an Excel file path containing columns:
-   - FirstName, LastName, FullStreetAddress, Zip, Age/Party
+    - FirstName, LastName, FullStreetAddress, Zip
+        - Or street components to build FullStreetAddress:
+            PrimaryHouseNumber, PrimaryStreetPre, PrimaryStreetName, PrimaryStreetType
+    - Optional: Age or Age/Party
+    - Optional party source columns: Party, CalculatedParty, or OfficialParty
+        - Optional: PrimaryUnitNumber
 
 2. GEOCODING: Uses Mapbox Geocoding API to convert each address (FullStreetAddress + Zip) 
    into latitude/longitude coordinates
@@ -23,9 +28,17 @@ This script processes an Excel file containing contact information with addresse
 4. SORTING: Sorts all addresses by their distance from the first address (closest to farthest)
 
 5. OUTPUT: Creates a new Excel file "Radial_Distance.xlsx" with columns:
-   - FirstName, LastName, FullStreetAddress, Zip, Age/Party, lng, lat, distance_in_feet
+    - FirstName, LastName, FullStreetAddress, Zip, Age, Party, lng, lat, distance_in_feet
+    - Includes PrimaryUnitNumber when present in the input
    - Auto-sized columns for optimal viewing
    - Sorted by distance from the first address
+
+6. PARTY NORMALIZATION:
+    - Source priority: Party -> CalculatedParty -> OfficialParty -> Age/Party
+    - Any value containing "republican" maps to "Rep"
+    - Any value containing "democrat" maps to "Dem"
+    - Any value containing "swing" maps to "Ind"
+    - All other values default to "Ind"
 
 Use case: Organizing contact lists by proximity for canvassing, delivery routes, or territorial planning.
 """
@@ -91,6 +104,69 @@ print(f"Loaded {len(df)} rows from Excel file")
 print("Column names in your Excel file:")
 print(df.columns.tolist())
 
+# Support two input schemas for street address.
+# If FullStreetAddress is missing, construct it from primary street components.
+if 'FullStreetAddress' not in df.columns:
+    address_parts = ['PrimaryHouseNumber', 'PrimaryStreetPre', 'PrimaryStreetName', 'PrimaryStreetType']
+    missing_parts = [col for col in address_parts if col not in df.columns]
+    if missing_parts:
+        raise ValueError(
+            "Excel file must include either 'FullStreetAddress' or all of "
+            f"{address_parts}. Missing: {missing_parts}"
+        )
+
+    df['FullStreetAddress'] = (
+        df['PrimaryHouseNumber'].fillna('').astype(str).str.strip() + ' ' +
+        df['PrimaryStreetPre'].fillna('').astype(str).str.strip() + ' ' +
+        df['PrimaryStreetName'].fillna('').astype(str).str.strip() + ' ' +
+        df['PrimaryStreetType'].fillna('').astype(str).str.strip()
+    ).str.replace(r'\s+', ' ', regex=True).str.strip()
+
+    print("Constructed 'FullStreetAddress' from primary street component columns.")
+
+# Normalize Age for output. Prefer Age; if missing, try to parse leading number from Age/Party.
+if 'Age' in df.columns:
+    df['Age'] = df['Age'].fillna('').astype(str).str.strip()
+elif 'Age/Party' in df.columns:
+    df['Age'] = (
+        df['Age/Party']
+        .fillna('')
+        .astype(str)
+        .str.extract(r'^(\d+)')[0]
+        .fillna('')
+        .str.strip()
+    )
+    print("Constructed 'Age' from 'Age/Party'.")
+else:
+    df['Age'] = ''
+
+# Build normalized Party with source priority:
+# Party -> CalculatedParty -> OfficialParty -> Age/Party
+# Keyword mapping: republican => Rep, democrat => Dem, swing => Ind, else Ind.
+party_source_col = None
+if 'Party' in df.columns:
+    party_source_col = 'Party'
+elif 'CalculatedParty' in df.columns:
+    party_source_col = 'CalculatedParty'
+elif 'OfficialParty' in df.columns:
+    party_source_col = 'OfficialParty'
+
+if party_source_col is not None:
+    party_raw = df[party_source_col].fillna('').astype(str).str.strip().str.lower()
+elif 'Age/Party' in df.columns:
+    party_raw = df['Age/Party'].fillna('').astype(str).str.strip().str.lower()
+    party_source_col = 'Age/Party'
+else:
+    party_raw = pd.Series([''] * len(df), index=df.index)
+
+df['Party'] = 'Ind'
+df.loc[party_raw.str.contains('republican', regex=False), 'Party'] = 'Rep'
+df.loc[party_raw.str.contains('democrat', regex=False), 'Party'] = 'Dem'
+df.loc[party_raw.str.contains('swing', regex=False), 'Party'] = 'Ind'
+
+if party_source_col is not None:
+    print(f"Constructed normalized 'Party' from '{party_source_col}'.")
+
 # Geocode and collect results
 results = []
 first_address_coords = None  # Store the first address coordinates
@@ -112,16 +188,24 @@ for idx, row in df.iterrows():
                 coords[1], coords[0]  # lat, lng of current address
             )
         
-        results.append({
+        result_row = {
             'FirstName': row['FirstName'],
             'LastName': row['LastName'],
             'FullStreetAddress': row['FullStreetAddress'],
+        }
+        # Insert PrimaryUnitNumber after FullStreetAddress if it exists
+        if 'PrimaryUnitNumber' in df.columns:
+            result_row['PrimaryUnitNumber'] = row['PrimaryUnitNumber'] if pd.notna(row['PrimaryUnitNumber']) else ''
+
+        result_row.update({
             'Zip': row['Zip'],
-            'Age/Party': row['Age/Party'],
+            'Age': row['Age'],
+            'Party': row['Party'],
             'lng': coords[0],
             'lat': coords[1],
             'distance_in_feet': distance_feet
         })
+        results.append(result_row)
         print(f"Geocoded: {row['FirstName']} {row['LastName']} - Distance: {distance_feet} ft")
     else:
         print(f"Failed: {complete_address}")
