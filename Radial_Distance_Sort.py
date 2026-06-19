@@ -13,14 +13,14 @@ This script processes an Excel file containing contact information with addresse
 
 1. INPUTS: Prompts user for an Excel file path containing columns:
     - FirstName, LastName, FullStreetAddress, Zip
-        - Or street components to build FullStreetAddress:
-            PrimaryHouseNumber, PrimaryStreetPre, PrimaryStreetName, PrimaryStreetType
+    - Or street components to build FullStreetAddress:
+      PrimaryHouseNumber, PrimaryStreetPre, PrimaryStreetName, PrimaryStreetType
     - Optional: Age or Age/Party
     - Optional party source columns: Party, CalculatedParty, or OfficialParty
-        - Optional: PrimaryUnitNumber
+    - Optional: PrimaryUnitNumber
 
-2. GEOCODING: Uses Mapbox Geocoding API to convert each address (FullStreetAddress + Zip) 
-   into latitude/longitude coordinates
+2. GEOCODING: Resolves each address (FullStreetAddress + Zip) to longitude/latitude
+   using a local cache first (`Lng_Lat_Hash.json`) and Mapbox Geocoding API only on cache misses
 
 3. DISTANCE CALCULATION: Calculates the straight-line distance in feet from the first address 
    in the list to all other addresses using the Haversine formula
@@ -33,7 +33,11 @@ This script processes an Excel file containing contact information with addresse
    - Auto-sized columns for optimal viewing
    - Sorted by distance from the first address
 
-6. PARTY NORMALIZATION:
+6. REQUEST REPORTING:
+    - Prints `mapbox_address_requests_final` as the total number of Mapbox API geocoding calls made
+    - Prints `lng_lat_hash_path` so the cache file location is visible
+
+7. PARTY NORMALIZATION:
     - Source priority: Party -> CalculatedParty -> OfficialParty -> Age/Party
     - Any value containing "republican" maps to "Rep"
     - Any value containing "democrat" maps to "Dem"
@@ -53,19 +57,41 @@ if not MAPBOX_TOKEN:
     print("Please set MAPBOX_TOKEN environment variable or enter it below:")
     MAPBOX_TOKEN = input("Enter your Mapbox API token: ").strip()
 
+# Track total MapBox geocoding requests made during this script run.
+mapbox_address_requests = 0
+
+# Persist MapBox geocoding results so reruns can reuse lng/lat values.
+script_dir = os.path.dirname(os.path.abspath(__file__))
+lng_lat_hash_path = os.path.join(script_dir, 'Lng_Lat_Hash.json')
+if os.path.exists(lng_lat_hash_path):
+    try:
+        with open(lng_lat_hash_path, 'r', encoding='utf-8') as lng_lat_file:
+            lng_lat_hash = json.load(lng_lat_file)
+    except json.JSONDecodeError:
+        lng_lat_hash = {}
+else:
+    lng_lat_hash = {}
+
 def geocode_address(address, token):
-    # This function takes a street address and a Mapbox API token,
-    # and returns the longitude and latitude coordinates for that address using the Mapbox Geocoding API.
-    # It builds the API request URL with the address, sends a GET request, and parses the JSON response.
-    # If the response contains at least one feature (i.e., a geocoding result),
-    # it extracts the coordinates ([lng, lat]) from the first feature and returns them.
-    # If no features are found, it returns None.
+    # Return [lng, lat] for an address.
+    # Uses Lng_Lat_Hash.json cache first, then calls Mapbox only when missing.
+    # Successful Mapbox responses are written back to the cache.
+    # Returns None when Mapbox has no matching feature.
+    cached_coords = lng_lat_hash.get(address)
+    if cached_coords is not None:
+        return cached_coords
+
+    global mapbox_address_requests
+    mapbox_address_requests += 1
     url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{address}.json"
     params = {'access_token': token, 'limit': 1}
     response = requests.get(url, params=params)
     data = response.json()
     if data['features']:
         coords = data['features'][0]['geometry']['coordinates']
+        lng_lat_hash[address] = coords
+        with open(lng_lat_hash_path, 'w', encoding='utf-8') as lng_lat_file:
+            json.dump(lng_lat_hash, lng_lat_file, indent=2)
         return coords  # [lng, lat]
     return None
 
@@ -212,10 +238,6 @@ for idx, row in df.iterrows():
     time.sleep(0.2)  # Respect Mapbox rate limits
 
 # Export to Excel file
-import os
-
-# Get the directory where this script is located
-script_dir = os.path.dirname(os.path.abspath(__file__))
 # Create the full path to Radial_Distance.xlsx in the same directory as this script
 output_file = os.path.join(script_dir, 'Radial_Distance.xlsx')
 
@@ -242,4 +264,8 @@ with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
         worksheet.set_column(i, i, max_len + 2)
 
 print(f"Radial_Distance.xlsx created successfully at: {output_file}")
+mapbox_address_requests_final = mapbox_address_requests
+print(f"mapbox_address_requests_final = {mapbox_address_requests_final}")
+# Keep the cache location visible for troubleshooting and reruns.
+print(f"lng_lat_hash_path = {lng_lat_hash_path}")
 # %%
