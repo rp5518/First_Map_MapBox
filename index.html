@@ -12,10 +12,12 @@ CORE USER FLOW
 3) markers.json is fetched and each entry is added as a numbered marker.
 4) If zone metadata exists, the zone selector is shown. Choosing a zone immediately
     filters visible markers and auto-zooms to those markers.
-5) Marker interaction updates shared state in Firestore (friendly, not friendly,
+5) In "All Zones" view, marker labels switch to zone-sequence numbers (1..N by zone),
+   while specific-zone views keep per-marker numbering.
+6) Marker interaction updates shared state in Firestore (friendly, not friendly,
    dropped literature, flag status, and notes history).
-6) Real-time Firestore listeners keep marker color/shape/notes synchronized across clients.
-7) Bulk reset is admin-gated and desktop-only: user must unlock admin controls before reset is visible.
+7) Real-time Firestore listeners keep marker color/shape/notes synchronized across clients.
+8) Bulk reset is admin-gated and desktop-only: user must unlock admin controls before reset is visible.
 
 DATA SOURCES
 - markers.json (same folder): Marker payload with first/last name, address, lng, lat,
@@ -30,6 +32,8 @@ MAJOR FEATURES
 - Geocoder search control and browser geolocation tracking.
 - Custom current-location marker.
 - Numeric map markers with optional star/flag shape.
+- In "All Zones" mode, marker labels represent zone sequence numbers instead of
+    household sequence numbers.
 - Optional zone selector shown only when zone data exists in markers.json.
 - Zone selection immediately performs a zoom-to-visible-markers fit.
 - Popup checkboxes for canvassing outcomes.
@@ -485,6 +489,7 @@ MAINTENANCE NOTES
         const zoomToIncludeMeButton = document.getElementById('zoom-to-include-me');
         let zoneFilteringEnabled = false;
         let requiresZoneSelection = false;
+        const zoneSequenceLookup = new Map();
 
         function normalizeZoneLabel(zoneValue) {
             const raw = String(zoneValue || '').trim();
@@ -517,6 +522,20 @@ MAINTENANCE NOTES
 
         function getVisibleMarkers() {
             return zoneFilteringEnabled ? markerObjects.filter(obj => obj.isVisible) : markerObjects;
+        }
+
+        function getMarkerDisplayLabel(markerIndex, markerZone) {
+            const selectedZone = zoneFilteringEnabled ? zoneSelect.value : '';
+            if (selectedZone === 'all' && markerZone && zoneSequenceLookup.has(markerZone)) {
+                return String(zoneSequenceLookup.get(markerZone));
+            }
+            return String(markerIndex + 1);
+        }
+
+        function refreshAllMarkerLabels() {
+            markerObjects.forEach(obj => {
+                obj.markerEl.textContent = getMarkerDisplayLabel(obj.idx, obj.zone);
+            });
         }
 
         function fitToMarkers(markerList) {
@@ -564,6 +583,8 @@ MAINTENANCE NOTES
                 }
             });
 
+            refreshAllMarkerLabels();
+
             if (shouldFit) {
                 fitToMarkers(getVisibleMarkers());
             }
@@ -600,6 +621,7 @@ MAINTENANCE NOTES
 
             if (zones.size === 0) {
                 zoneFilteringEnabled = false;
+                zoneSequenceLookup.clear();
                 zoneFilterPanel.classList.add('hidden');
                 zoneSelect.value = 'all';
                 setMainMapButtonsVisible(true);
@@ -609,6 +631,10 @@ MAINTENANCE NOTES
             zoneFilteringEnabled = true;
 
             const zoneList = Array.from(zones).sort(sortZoneLabels);
+            zoneSequenceLookup.clear();
+            zoneList.forEach((zone, zoneIndex) => {
+                zoneSequenceLookup.set(zone, zoneIndex + 1);
+            });
             zoneSelect.innerHTML = '';
 
             requiresZoneSelection = zoneList.length > 1;
@@ -751,7 +777,7 @@ MAINTENANCE NOTES
                 const markerZone = getMarkerZone(marker);
                 // Ensure all new markers start in default state (yellow, no flags)
                 markerEl.style.backgroundColor = '#FFFF00'; // Default yellow
-                setMarkerShape(markerEl, false, idx + 1); // No flag by default
+                setMarkerShape(markerEl, false, getMarkerDisplayLabel(idx, markerZone)); // No flag by default
                 
                 const popupContent = document.createElement('div');
                     
@@ -849,7 +875,7 @@ MAINTENANCE NOTES
                                 markerEl.style.backgroundColor = '#FFFF00';
                             }
 
-                            setMarkerShape(markerEl, flag, idx + 1);
+                            setMarkerShape(markerEl, flag, getMarkerDisplayLabel(idx, markerZone));
 
                             const historyDiv = popupContent.querySelector(`#notes-history-${idx}`);
                             if (!notesHistory || notesHistory.length === 0) {
@@ -1002,7 +1028,7 @@ MAINTENANCE NOTES
                             markerEl.style.backgroundColor = '#FFFF00'; // Default: yellow
                             state = '';
                         }
-                        setMarkerShape(markerEl, flagBox.checked, idx + 1);
+                        setMarkerShape(markerEl, flagBox.checked, getMarkerDisplayLabel(idx, markerZone));
 
                         const addressId = createAddressId(address);
                         console.log('Writing to Firebase - Address:', address, '-> ID:', addressId, 'State:', state);
@@ -1016,7 +1042,7 @@ MAINTENANCE NOTES
                             else if (state === 'notfriendly') markerEl.style.backgroundColor = '#FF4500';
                             else if (state === 'visited') markerEl.style.backgroundColor = '#B39DDB';
                             else markerEl.style.backgroundColor = '#FFFF00';
-                            setMarkerShape(markerEl, flagBox.checked, idx + 1);
+                            setMarkerShape(markerEl, flagBox.checked, getMarkerDisplayLabel(idx, markerZone));
                             setTimeout(() => { isUpdating = false; }, 100); // Re-enable listener after delay
                         });
                     }
@@ -1030,7 +1056,7 @@ MAINTENANCE NOTES
                             notFriendlyBox.checked = false;
                             markerEl.style.backgroundColor = '#FFFF00';
                             notesBox.value = '';
-                            setMarkerShape(markerEl, flagBox.checked, idx + 1);
+                            setMarkerShape(markerEl, flagBox.checked, getMarkerDisplayLabel(idx, markerZone));
                             const addressId = createAddressId(marker.address);
                             db.collection('markerStates').doc(addressId).set({ 
                                 state: '', 
@@ -1046,7 +1072,7 @@ MAINTENANCE NOTES
                     // American Flag logic (independent)
                     flagBox.addEventListener('change', () => {
                         isUpdating = true; // Prevent listener conflicts
-                        setMarkerShape(markerEl, flagBox.checked, idx + 1);
+                        setMarkerShape(markerEl, flagBox.checked, getMarkerDisplayLabel(idx, markerZone));
                         let state = '';
                         if (friendlyBox.checked) state = 'friendly';
                         else if (notFriendlyBox.checked) state = 'notfriendly';
@@ -1306,8 +1332,8 @@ MAINTENANCE NOTES
                 }
                 
                 // Update marker shape based on flag (always preserve flag)
-                if (flag) setMarkerShape(obj.markerEl, true, idx + 1);
-                else setMarkerShape(obj.markerEl, false, idx + 1);
+                if (flag) setMarkerShape(obj.markerEl, true, getMarkerDisplayLabel(idx, obj.zone));
+                else setMarkerShape(obj.markerEl, false, getMarkerDisplayLabel(idx, obj.zone));
             });
             console.log('Firestore update received', snapshot.docs.map(doc => doc.data()));
         });
