@@ -9,13 +9,15 @@ What it does:
     written as one map marker entry.
 - Reuses existing lng/lat values from the spreadsheet when they are already
     available.
-- Falls back to the Mapbox Geocoding API only for addresses that still need
-    coordinates.
+- Reuses coordinate values from Lng_Lat_Hash.json when that cache already has
+    a matching address, and otherwise falls back to the Mapbox Geocoding API.
 - Preserves first name, last name, optional age, optional party, and optional
     zone values as comma-separated lists so the popup on the map can show
     everyone at the same address.
 - Writes the final marker list to markers.json next to this script, including
     party when a Party column exists in the input file.
+- Prints a progress update every five seconds and reports how many external
+    coordinate lookups were required at the end of the run.
 
 Expected input columns:
 - FullStreetAddress and Zip, unless CompleteAddress already exists.
@@ -102,6 +104,28 @@ def find_column_name(columns, aliases):
     return None
 
 
+def load_existing_hash(hash_path):
+    """Load an existing Lng_Lat_Hash.json file if it exists."""
+    if not hash_path.exists():
+        return {}
+    try:
+        with hash_path.open('r', encoding='utf-8') as handle:
+            data = json.load(handle)
+        if isinstance(data, dict):
+            return data
+    except Exception as exc:
+        print(f'Warning: could not read {hash_path}: {exc}')
+    return {}
+
+
+def save_hash_entry(hash_path, address, coords):
+    """Persist a new address-to-coordinates mapping to Lng_Lat_Hash.json."""
+    hash_data = load_existing_hash(hash_path)
+    hash_data[address] = [coords[0], coords[1]]
+    with hash_path.open('w', encoding='utf-8') as handle:
+        json.dump(hash_data, handle, indent=2)
+
+
 # Read Excel
 input_excel = prompt_for_input_excel_path()
 print(f'Using input file: {input_excel}')
@@ -148,7 +172,21 @@ print(
     f'existing coords: {has_existing_coordinates} ({lng_column}, {lat_column})'
 )
 
-for complete_address, address_group in df.groupby('CompleteAddress', sort=False):
+address_groups = list(df.groupby('CompleteAddress', sort=False))
+total_addresses = len(address_groups)
+last_progress_time = time.time()
+external_lookup_count = 0
+hash_path = SCRIPT_DIR / 'Lng_Lat_Hash.json'
+existing_hash = load_existing_hash(hash_path)
+
+for index, (complete_address, address_group) in enumerate(address_groups, start=1):
+    current_time = time.time()
+    if current_time - last_progress_time >= 5:
+        print(
+            f'Progress: {index}/{total_addresses} addresses processed '
+            f'({index / total_addresses * 100:.1f}%)'
+        )
+        last_progress_time = current_time
     # Keep row-level ordering so first/last/age entries stay aligned in popup rendering.
     first_values = [value.strip() for value in address_group['FirstName'].fillna('').astype(str).tolist()]
     last_values = [value.strip() for value in address_group['LastName'].fillna('').astype(str).tolist()]
@@ -185,9 +223,16 @@ for complete_address, address_group in df.groupby('CompleteAddress', sort=False)
             coords = [first_coords['lng'], first_coords['lat']]
 
     if not coords:
-        token = get_mapbox_token()
-        coords = geocode_address(complete_address, token)
-        time.sleep(0.2)  # Respect Mapbox rate limits only for API calls
+        cached_coords = existing_hash.get(complete_address)
+        if cached_coords:
+            coords = [cached_coords[0], cached_coords[1]]
+        else:
+            token = get_mapbox_token()
+            coords = geocode_address(complete_address, token)
+            if coords:
+                external_lookup_count += 1
+                save_hash_entry(hash_path, complete_address, coords)
+            time.sleep(0.2)  # Respect Mapbox rate limits only for API calls
 
     if coords:
         marker_row = {
@@ -213,3 +258,4 @@ with output_json.open('w', encoding='utf-8') as f:
     json.dump(results, f)
 
 print(f'markers.json created at: {output_json}')
+print(f'External coordinate lookups performed: {external_lookup_count}')

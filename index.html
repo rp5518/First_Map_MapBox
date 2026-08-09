@@ -1,70 +1,46 @@
 <!--
 FILE OVERVIEW
-This page is the main canvassing map application for First_Map_MapBox.
-It renders an interactive Mapbox GL map, loads household markers from markers.json,
-and uses Firebase Firestore for real-time shared marker state and notes.
-Marker popups display household names plus optional Age and Party values when
-they are present in the marker data.
+This page is the main canvassing map for the First_Map_MapBox workflow.
+It renders a Mapbox GL map from household marker data in markers.json, supports
+zone-based filtering and numbering, and keeps canvassing state in sync with
+Firebase Firestore so multiple users can share marker notes and outcomes.
 
 CORE USER FLOW
-1) User opens page and is blocked by a password overlay.
-2) On correct password, the map is initialized and controls are enabled.
-3) markers.json is fetched and each entry is added as a numbered marker.
-4) If zone metadata exists, the zone selector is shown. Choosing a zone immediately
-    filters visible markers and auto-zooms to those markers.
-5) In "All Zones" view, marker labels switch to zone-sequence numbers (1..N by zone),
-   while specific-zone views keep per-marker numbering.
-6) Marker interaction updates shared state in Firestore (friendly, not friendly,
-   dropped literature, flag status, and notes history).
-7) Real-time Firestore listeners keep marker color/shape/notes synchronized across clients.
-8) Bulk reset is admin-gated and desktop-only: user must unlock admin controls before reset is visible.
+1) A user opens the page and is prompted by a password overlay.
+2) After authentication, the map initializes and loads marker data from markers.json.
+3) Each marker is drawn on the map with a label that reflects either the overall
+   sequence or the active zone sequence, depending on the current view.
+4) Zone selection filters the visible markers and re-centers the map around them.
+5) Marker popups allow the user to record canvassing outcomes, flags, and notes.
+6) Firestore listeners keep marker colors, shapes, and notes synchronized for all clients.
+7) Admin-only bulk reset actions are available on desktop-class devices and can target
+   all markers or only the currently selected zone.
 
 DATA SOURCES
-- markers.json (same folder): Marker payload with first/last name, address, lng, lat,
-    and optional age, party, and zone values.
+- markers.json (same folder): Marker payload with name, address, lng, lat, and optional
+  age, party, and zone values.
 - Firestore collection markerStates: Per-address canvassing state, flag, and notes.
-- Firestore doc mapSettings/markerVersion: Hash/version tracking for marker set changes.
+- Firestore doc mapSettings/markerVersion: Version/hash tracking for marker set changes.
 
 MAJOR FEATURES
-- Password-gated access UI.
-- Separate admin unlock gate for bulk reset controls on desktop-class devices only.
-- Mapbox map with globe projection and initial spin animation.
-- Geocoder search control and browser geolocation tracking.
-- Custom current-location marker.
-- Numeric map markers with optional star/flag shape.
-- In "All Zones" mode, marker labels represent zone sequence numbers instead of
-    household sequence numbers.
-- Optional zone selector shown only when zone data exists in markers.json.
-- Zone selection immediately performs a zoom-to-visible-markers fit.
-- Popup checkboxes for canvassing outcomes.
-- Popup name lines can show Age and Party information from markers.json.
-- Timestamped note entry and notes history display.
-- "Zoom to Include Me" map action.
-- Bulk reset modes: state-only, state+notes, and full reset (state+notes+flags).
-- Bulk reset can target all markers or only markers in the selected zone.
-- Automatic relock after successful bulk reset (returns to Admin Unlock state).
+- Password-gated access and separate admin unlock flow.
+- Zone selector with immediate map fit-to-visible-markers behavior.
+- Geocoder search, browser geolocation, and custom current-location marker.
+- Numeric marker labels with optional star/flag styling.
+- Popup controls for friendly, not-friendly, and dropped-literature outcomes.
+- Timestamped note history and bulk reset modes for state-only, state+notes, or full reset.
 
-STATE BEHAVIOR
-- Default marker color is yellow.
-- Friendly -> green, Not Friendly -> orange-red, Dropped Literature -> purple.
-- Flag is independent of canvassing state and changes marker shape.
-- Single-marker Reset clears canvassing status and notes for that marker.
-- Bulk reset mode 1 resets canvassing state only (preserves notes and flags).
-- Bulk reset mode 2 resets canvassing state and clears notes (preserves flags).
-- Bulk reset mode 3 resets canvassing state, clears notes, and removes flags.
-
-DEPENDENCIES / RUNTIME REQUIREMENTS
-- Mapbox GL JS and Mapbox Geocoder plugin (CDN imports in head).
+RUNTIME REQUIREMENTS
+- Mapbox GL JS and Mapbox Geocoder plugin from CDN.
 - Firebase app + Firestore compat SDKs.
-- A valid Mapbox token from local-config.js, localStorage, or built-in public fallback.
-- reset-markers.js module (loaded via dynamic import during bulk reset).
-- Serve over HTTP (for example VS Code Live Server), not file://.
+- A valid Mapbox token from local-config.js, localStorage, or the built-in fallback.
+- reset-markers.js module for bulk reset helpers.
+- HTTP serving (for example VS Code Live Server), not file://.
 
 MAINTENANCE NOTES
-- Keep markers.json schema consistent with the fetch/render logic.
-- Address string is converted to a sanitized Firestore doc ID.
-- Any change to markers.json addresses affects version-hash reset behavior.
-- Bulk reset helpers are module-scoped exports (not attached to window globals).
+- Keep markers.json schema compatible with the fetch/render logic.
+- Firestore document IDs are derived from sanitized address strings.
+- Any marker address change can affect version-hash reset behavior.
 -->
 <!DOCTYPE html>
 <html>
