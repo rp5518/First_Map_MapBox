@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "hosting:login": "npx firebase-tools login",
+    "hosting:preview": "npx firebase-tools hosting:channel:deploy preview",
+    "hosting:deploy": "npx firebase-tools deploy --only hosting"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Proximity Companion</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <main class="app-shell">
+        <h1>Proximity Companion</h1>
+        <p class="subtitle">
+            Foreground tracking helper for auto-marking map addresses as visited when nearest and within range.
+        </p>
+
+        <section class="panel">
+            <h2>Tracking Controls</h2>
+            <div class="mode-row">
+                <label for="mode-select">Mode Preset</label>
+                <select id="mode-select">
+                    <option value="field" selected>Field Mode (balanced)</option>
+                    <option value="test">Test Mode (easy trigger)</option>
+                    <option value="strict">Strict Mode (fewer false positives)</option>
+                    <option value="custom">Custom (manual settings)</option>
+                </select>
+                <button id="apply-mode-btn" type="button">Apply Mode</button>
+                <span id="mode-hint" class="mode-hint">Balanced settings for normal walking routes.</span>
+            </div>
+            <div class="grid">
+                <label>
+                    Proximity Threshold (feet)
+                    <input id="threshold-feet" type="number" min="5" max="200" value="30">
+                </label>
+                <label>
+                    Nearest Margin (feet)
+                    <input id="nearest-margin-feet" type="number" min="0" max="100" value="10">
+                </label>
+                <label>
+                    Min Movement (feet)
+                    <input id="min-move-feet" type="number" min="0" max="100" value="12">
+                </label>
+                <label>
+                    Max GPS Accuracy (feet)
+                    <input id="max-accuracy-feet" type="number" min="10" max="300" value="50">
+                </label>
+                <label>
+                    Per Marker Cooldown (seconds)
+                    <input id="cooldown-seconds" type="number" min="0" max="600" value="90">
+                </label>
+                <label>
+                    Poll Interval Hint (ms)
+                    <input id="poll-ms" type="number" min="500" max="10000" value="1500">
+                </label>
+            </div>
+            <div class="button-row">
+                <button id="load-markers-btn" type="button">Load Marker List</button>
+                <button id="start-btn" type="button">Start Tracking</button>
+                <button id="stop-btn" type="button" disabled>Stop Tracking</button>
+            </div>
+            <div class="checkbox-row">
+                <input id="beep-enabled" type="checkbox" checked>
+                <label for="beep-enabled">Play beep when a marker is auto-marked</label>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Optional Address Selection Filter</h2>
+            <p>
+                If enabled, only these addresses are eligible for proximity marking. One address per line.
+            </p>
+            <div class="checkbox-row">
+                <input id="selected-only" type="checkbox">
+                <label for="selected-only">Use selected-address filter</label>
+            </div>
+            <textarea id="selected-addresses" rows="8" placeholder="101 W Briarwood Ter, 85045"></textarea>
+        </section>
+
+        <section class="panel">
+            <h2>Status</h2>
+            <dl class="status-list">
+                <div><dt>Markers Loaded</dt><dd id="markers-loaded">0</dd></div>
+                <div><dt>Eligible Markers</dt><dd id="eligible-markers">0</dd></div>
+                <div><dt>Tracking</dt><dd id="tracking-state">Stopped</dd></div>
+                <div><dt>Last Position</dt><dd id="last-position">No fix yet</dd></div>
+                <div><dt>Last Action</dt><dd id="last-action">None</dd></div>
+            </dl>
+        </section>
+
+        <section class="panel">
+            <h2>Event Log</h2>
+            <pre id="log" class="log"></pre>
+        </section>
+    </main>
+
+    <script src="./app.js"></script>
+</body>
+</html>

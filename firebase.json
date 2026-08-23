@@ -1,0 +1,56 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "README.md",
+      "package*.json",
+      "node_modules/**",
+      ".git/**",
+      ".gitignore",
+      "__pycache__/**",
+      "build/**",
+      "*.py",
+      "*.xlsx",
+      "*.xls",
+      "*.tmp",
+      "*.log",
+      "distance_hash.json",
+      "Lng_Lat_Hash.json",
+      "Canvasers.xlsx",
+      "Canvasser_Zones_Driving_Distance.xlsx",
+      "Driving_Distance.xlsx",
+      "Radial_Distance.xlsx"
+    ],
+    "headers": [
+      {
+        "source": "/markers.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, no-cache, must-revalidate, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, no-cache, must-revalidate, max-age=0"
+          }
+        ]
+      }
+    ]
+  }
+}

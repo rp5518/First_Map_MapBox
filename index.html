@@ -121,6 +121,110 @@ MAINTENANCE NOTES
             top: 140px;
             background-color: #eaf4ff;
         }
+        #auto-select-settings-panel {
+            position: absolute;
+            top: 108px;
+            right: 20px;
+            z-index: 31;
+            width: 240px;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #d8e2eb;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+            font-size: 12px;
+        }
+        #auto-select-settings-panel.hidden {
+            display: none;
+        }
+        #auto-select-settings-panel h3 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #1f2937;
+        }
+        .auto-select-setting {
+            margin-bottom: 8px;
+        }
+        .auto-select-setting label {
+            display: block;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #1f2937;
+        }
+        .auto-select-setting input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #cfd4dc;
+            border-radius: 6px;
+            font-size: 12px;
+            box-sizing: border-box;
+        }
+        .auto-select-help {
+            margin: 0;
+            color: #4b5563;
+            line-height: 1.3;
+        }
+        #proximity-status-badge {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 32;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(17, 24, 39, 0.88);
+            color: #e5e7eb;
+            font-size: 12px;
+            font-weight: 700;
+            backdrop-filter: blur(3px);
+            user-select: none;
+            cursor: pointer;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+        #proximity-status-badge.active .status-dot {
+            background: #22c55e;
+            animation: pulse-dot 1.5s infinite;
+        }
+        #proximity-status-badge.holding {
+            background: rgba(21, 101, 192, 0.92);
+            backdrop-filter: none;
+            box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.9), 0 0 0 0 rgba(147, 197, 253, 0.45);
+            animation: hold-ring 0.9s ease-out infinite;
+        }
+        @keyframes hold-ring {
+            0% {
+                box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.9), 0 0 0 0 rgba(147, 197, 253, 0.45);
+            }
+            100% {
+                box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.9), 0 0 0 14px rgba(147, 197, 253, 0);
+            }
+        }
+        @keyframes pulse-dot {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+            70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        @media (max-width: 700px) {
+            #auto-select-settings-panel {
+                top: 122px;
+                right: 12px;
+                width: min(240px, calc(100vw - 24px));
+            }
+            #proximity-status-badge {
+                right: 12px;
+                bottom: 14px;
+            }
+        }
         /* Password Protection Styles */
         #password-overlay {
             position: fixed;
@@ -215,6 +319,34 @@ MAINTENANCE NOTES
         <button id="zoom-to-include-me" class="map-action-button hidden">Zoom to Include Me</button>
         <button id="unlock-admin-reset" class="map-action-button">Admin Unlock</button>
         <button id="reset-all-markers" class="map-action-button hidden">Reset All Markers</button>
+        <div id="auto-select-settings-panel" class="hidden">
+            <h3>Auto Select Settings</h3>
+            <div class="auto-select-setting">
+                <label for="auto-select-threshold-feet">Proximity Threshold (feet)</label>
+                <input id="auto-select-threshold-feet" type="number" min="5" max="200" value="75">
+            </div>
+            <div class="auto-select-setting">
+                <label for="auto-select-nearest-margin-feet">Nearest Margin (feet)</label>
+                <input id="auto-select-nearest-margin-feet" type="number" min="0" max="100" value="0">
+            </div>
+            <div class="auto-select-setting">
+                <label for="auto-select-min-move-feet">Min Movement (feet)</label>
+                <input id="auto-select-min-move-feet" type="number" min="0" max="100" value="0">
+            </div>
+            <div class="auto-select-setting">
+                <label for="auto-select-max-accuracy-feet">Max GPS Accuracy (feet)</label>
+                <input id="auto-select-max-accuracy-feet" type="number" min="10" max="300" value="200">
+            </div>
+            <div class="auto-select-setting">
+                <label for="auto-select-cooldown-ms">Cooldown (ms)</label>
+                <input id="auto-select-cooldown-ms" type="number" min="0" max="600000" value="0">
+            </div>
+            <p class="auto-select-help">Hold Zoom to Include Me for 3 seconds to hide or show this panel.</p>
+        </div>
+        <div id="proximity-status-badge" class="hidden" aria-live="polite" title="Hold for 3 seconds to toggle Auto Select">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="proximity-badge-text">Auto Select Off</span>
+        </div>
         <div id="map"></div>
     </div>
     <!-- Firebase SDKs -->
@@ -388,6 +520,345 @@ MAINTENANCE NOTES
 
         // Variable to store the current location marker
         let currentLocationMarker = null; 
+        let locationAlertShown = false;
+
+        const autoSelectSettingsPanel = document.getElementById('auto-select-settings-panel');
+        const autoSelectThresholdFeetInput = document.getElementById('auto-select-threshold-feet');
+        const autoSelectNearestMarginFeetInput = document.getElementById('auto-select-nearest-margin-feet');
+        const autoSelectMinMoveFeetInput = document.getElementById('auto-select-min-move-feet');
+        const autoSelectMaxAccuracyFeetInput = document.getElementById('auto-select-max-accuracy-feet');
+        const autoSelectCooldownMsInput = document.getElementById('auto-select-cooldown-ms');
+        const proximityStatusBadge = document.getElementById('proximity-status-badge');
+        const proximityBadgeText = document.getElementById('proximity-badge-text');
+
+        let proximityTrackingEnabled = false;
+        let proximityLastEvalPosition = null;
+        let proximityCurrentPosition = null;
+        let proximityAudioContext = null;
+        let proximityHoldTimeoutId = null;
+        let proximityHoldTriggered = false;
+        let proximityHoldJustCommitted = false;
+        let zoomButtonHoldTimeoutId = null;
+        let zoomButtonHoldTriggered = false;
+        let zoomButtonTapHandled = false;
+        const proximityCooldownMsById = new Map();
+
+        function getAutoSelectSettings() {
+            return {
+                thresholdFeet: Number(autoSelectThresholdFeetInput.value) || 75,
+                nearestMarginFeet: Number(autoSelectNearestMarginFeetInput.value) || 0,
+                minMoveFeet: Number(autoSelectMinMoveFeetInput.value) || 0,
+                maxAccuracyFeet: Number(autoSelectMaxAccuracyFeetInput.value) || 200,
+                cooldownMs: Number(autoSelectCooldownMsInput.value) || 0
+            };
+        }
+
+        function refreshProximityEvaluation() {
+            if (!proximityTrackingEnabled || !proximityCurrentPosition) {
+                return;
+            }
+
+            evaluateProximity(proximityCurrentPosition);
+        }
+
+        [
+            autoSelectThresholdFeetInput,
+            autoSelectNearestMarginFeetInput,
+            autoSelectMinMoveFeetInput,
+            autoSelectMaxAccuracyFeetInput,
+            autoSelectCooldownMsInput
+        ].forEach((input) => {
+            input.addEventListener('input', refreshProximityEvaluation);
+            input.addEventListener('change', refreshProximityEvaluation);
+        });
+
+        function setProximityStatus(active, message) {
+            proximityStatusBadge.classList.toggle('active', !!active);
+            proximityBadgeText.textContent = active ? 'Auto Select On' : 'Auto Select Off';
+            if (message) {
+                proximityStatusBadge.title = message;
+            }
+        }
+
+        function setProximityControlsVisible(visible) {
+            proximityStatusBadge.classList.toggle('hidden', !visible);
+        }
+
+        function toggleAutoSelectSettingsPanel() {
+            autoSelectSettingsPanel.classList.toggle('hidden');
+        }
+
+        function metersToFeet(meters) {
+            return meters * 3.280839895;
+        }
+
+        function haversineFeet(lat1, lon1, lat2, lon2) {
+            const toRad = Math.PI / 180;
+            const dLat = (lat2 - lat1) * toRad;
+            const dLon = (lon2 - lon1) * toRad;
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const earthMeters = 6371000;
+            return metersToFeet(earthMeters * c);
+        }
+
+        function ensureProximityAudioContext() {
+            if (!proximityAudioContext) {
+                proximityAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return proximityAudioContext;
+        }
+
+        async function playProximityBeep() {
+            try {
+                const audioCtx = ensureProximityAudioContext();
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+
+                const oscillator = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 880;
+                gain.gain.value = 0.001;
+
+                oscillator.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const current = audioCtx.currentTime;
+                gain.gain.exponentialRampToValueAtTime(0.13, current + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, current + 0.18);
+
+                oscillator.start(current);
+                oscillator.stop(current + 0.2);
+            } catch (error) {
+                console.warn('Proximity beep failed:', error);
+            }
+        }
+
+        async function tryAutoMarkVisited(targetObj, distanceFeet) {
+            const addressId = createAddressId(targetObj.address);
+            const markerStateRef = db.collection('markerStates').doc(addressId);
+
+            const result = await db.runTransaction(async (transaction) => {
+                const stateDoc = await transaction.get(markerStateRef);
+                const data = stateDoc.exists ? stateDoc.data() : {};
+                const currentState = String(data.state || '').trim();
+
+                if (currentState !== '') {
+                    return { changed: false, state: currentState };
+                }
+
+                transaction.set(markerStateRef, {
+                    state: 'visited',
+                    updatedBy: 'proximity',
+                    proximityTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                return { changed: true };
+            });
+
+            if (result.changed) {
+                proximityCooldownMsById.set(addressId, Date.now());
+                setProximityStatus(true, `Auto-marked: ${Math.round(distanceFeet)} ft from target`);
+                await playProximityBeep();
+                console.log('Auto-marked marker as visited:', targetObj.address);
+            } else {
+                setProximityStatus(true, `Skipped (already ${result.state || 'set'})`);
+            }
+        }
+
+        function evaluateProximity(position) {
+            if (!proximityTrackingEnabled) {
+                return;
+            }
+            if (!markerObjects.length) {
+                setProximityStatus(true, 'Waiting for marker list to load...');
+                return;
+            }
+
+            const settings = getAutoSelectSettings();
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            const accuracyFeet = metersToFeet(position.coords.accuracy);
+
+            if (accuracyFeet > settings.maxAccuracyFeet) {
+                setProximityStatus(true, `GPS accuracy low (${Math.round(accuracyFeet)} ft)`);
+                return;
+            }
+
+            if (proximityLastEvalPosition) {
+                const moveDistanceFeet = haversineFeet(
+                    proximityLastEvalPosition.lat,
+                    proximityLastEvalPosition.lng,
+                    latitude,
+                    longitude
+                );
+
+                if (moveDistanceFeet < settings.minMoveFeet) {
+                    return;
+                }
+            }
+
+            proximityLastEvalPosition = { lat: latitude, lng: longitude };
+
+            const candidateMarkers = getVisibleMarkers().length ? getVisibleMarkers() : markerObjects;
+            let nearest = null;
+            let secondNearest = null;
+
+            candidateMarkers.forEach(obj => {
+                const markerLngLat = obj.marker.getLngLat();
+                const distanceFeet = haversineFeet(latitude, longitude, markerLngLat.lat, markerLngLat.lng);
+                const candidate = { obj, distanceFeet };
+
+                if (!nearest || candidate.distanceFeet < nearest.distanceFeet) {
+                    secondNearest = nearest;
+                    nearest = candidate;
+                } else if (!secondNearest || candidate.distanceFeet < secondNearest.distanceFeet) {
+                    secondNearest = candidate;
+                }
+            });
+
+            if (!nearest) {
+                setProximityStatus(true, 'No nearby marker found');
+                return;
+            }
+
+            if (nearest.distanceFeet > settings.thresholdFeet) {
+                setProximityStatus(true, `Nearest marker ${Math.round(nearest.distanceFeet)} ft`);
+                return;
+            }
+
+            if (secondNearest && nearest.distanceFeet + settings.nearestMarginFeet >= secondNearest.distanceFeet) {
+                setProximityStatus(true, 'Ambiguous nearest marker, waiting');
+                return;
+            }
+
+            const nearestId = createAddressId(nearest.obj.address);
+            const lastMarkedAt = proximityCooldownMsById.get(nearestId) || 0;
+            if (Date.now() - lastMarkedAt < settings.cooldownMs) {
+                return;
+            }
+
+            tryAutoMarkVisited(nearest.obj, nearest.distanceFeet).catch(error => {
+                console.error('Auto-mark transaction error:', error);
+                setProximityStatus(true, 'Auto-mark failed, see console');
+            });
+        }
+
+        function startProximityTracking() {
+            if (proximityTrackingEnabled) {
+                return;
+            }
+            proximityTrackingEnabled = true;
+            proximityLastEvalPosition = null;
+            ensureProximityAudioContext();
+            setProximityStatus(true, 'Auto Select enabled. Hold 3 seconds to disable.');
+        }
+
+        function stopProximityTracking() {
+            proximityTrackingEnabled = false;
+            setProximityStatus(false, 'Auto Select disabled. Hold 3 seconds to enable.');
+        }
+
+        function beginProximityHoldToggle(event) {
+            if (event.type === 'mousedown' && event.button !== 0) {
+                return;
+            }
+
+            proximityHoldTriggered = false;
+            proximityStatusBadge.classList.add('holding');
+
+            if (proximityHoldTimeoutId) {
+                clearTimeout(proximityHoldTimeoutId);
+            }
+
+            proximityHoldTimeoutId = setTimeout(() => {
+                proximityHoldTriggered = true;
+                if (proximityTrackingEnabled) {
+                    stopProximityTracking();
+                } else {
+                    startProximityTracking();
+                }
+                proximityHoldJustCommitted = true;
+                proximityStatusBadge.classList.remove('holding');
+                setTimeout(() => {
+                    proximityHoldJustCommitted = false;
+                }, 0);
+            }, 3000);
+        }
+
+        function cancelProximityHoldToggle() {
+            if (proximityHoldTimeoutId) {
+                clearTimeout(proximityHoldTimeoutId);
+                proximityHoldTimeoutId = null;
+            }
+
+            if (proximityHoldJustCommitted) {
+                proximityStatusBadge.classList.remove('holding');
+                proximityHoldTriggered = false;
+                return;
+            }
+
+            proximityStatusBadge.classList.remove('holding');
+
+            if (!proximityHoldTriggered) {
+                setProximityStatus(
+                    proximityTrackingEnabled,
+                    'Hold for 3 seconds to toggle Auto Select.'
+                );
+            }
+        }
+
+        function zoomToIncludeMe() {
+            pauseSpinning();
+            const visibleMarkers = getVisibleMarkers();
+            if (visibleMarkers.length === 0 && !currentLocationMarker) return;
+
+            const bounds = new mapboxgl.LngLatBounds();
+
+            visibleMarkers.forEach(obj => {
+                const lngLat = obj.marker.getLngLat();
+                bounds.extend([lngLat.lng, lngLat.lat]);
+            });
+
+            if (currentLocationMarker) {
+                const currentLngLat = currentLocationMarker.getLngLat();
+                bounds.extend([currentLngLat.lng, currentLngLat.lat]);
+            }
+
+            map.fitBounds(bounds, {
+                padding: 50,
+                maxZoom: 16
+            });
+        }
+
+        function beginZoomButtonHold(event) {
+            if (event.type === 'mousedown' && event.button !== 0) {
+                return;
+            }
+
+            zoomButtonHoldTriggered = false;
+
+            if (zoomButtonHoldTimeoutId) {
+                clearTimeout(zoomButtonHoldTimeoutId);
+            }
+
+            zoomButtonHoldTimeoutId = setTimeout(() => {
+                zoomButtonHoldTriggered = true;
+                toggleAutoSelectSettingsPanel();
+            }, 3000);
+        }
+
+        function cancelZoomButtonHold() {
+            if (zoomButtonHoldTimeoutId) {
+                clearTimeout(zoomButtonHoldTimeoutId);
+                zoomButtonHoldTimeoutId = null;
+            }
+        }
 
         // Function to create a custom current location marker
         function createCurrentLocationMarker() {
@@ -435,12 +906,19 @@ MAINTENANCE NOTES
                             .setLngLat([longitude, latitude])
                             .setPopup(popup)
                             .addTo(map);
+
+                        proximityCurrentPosition = position;
+                        evaluateProximity(position);
                         
                         console.log('Location updated:', latitude, longitude);
                     },
                     (error) => {
                         console.error('Geolocation error:', error);
-                        alert('Unable to retrieve your location. Please enable location services.');
+                        if (!locationAlertShown) {
+                            alert('Unable to retrieve your location. Please enable location services.');
+                            locationAlertShown = true;
+                        }
+                        setProximityStatus(false, 'Location unavailable');
                     },
                     {
                         enableHighAccuracy: true,
@@ -460,12 +938,20 @@ MAINTENANCE NOTES
 
         // Store marker references and visited state
         let markerObjects = [];
+        const markerByAddressId = new Map();
+        const markerStateCache = new Map();
+        const pendingMarkerStateUpdates = new Map();
+        let markerUpdateFrameId = null;
         const zoneFilterPanel = document.getElementById('zone-filter-panel');
         const zoneSelect = document.getElementById('zone-select');
         const zoomToIncludeMeButton = document.getElementById('zoom-to-include-me');
         let zoneFilteringEnabled = false;
         let requiresZoneSelection = false;
         const zoneSequenceLookup = new Map();
+
+        setProximityControlsVisible(true);
+        startProximityTracking();
+        autoSelectSettingsPanel.classList.add('hidden');
 
         function normalizeZoneLabel(zoneValue) {
             const raw = String(zoneValue || '').trim();
@@ -498,6 +984,76 @@ MAINTENANCE NOTES
 
         function getVisibleMarkers() {
             return zoneFilteringEnabled ? markerObjects.filter(obj => obj.isVisible) : markerObjects;
+        }
+
+        function queueMarkerStateUpdate(addressId, data) {
+            pendingMarkerStateUpdates.set(addressId, data || {});
+            if (markerUpdateFrameId !== null) {
+                return;
+            }
+            markerUpdateFrameId = requestAnimationFrame(() => {
+                markerUpdateFrameId = null;
+                const updates = Array.from(pendingMarkerStateUpdates.entries());
+                pendingMarkerStateUpdates.clear();
+                updates.forEach(([queuedAddressId, queuedData]) => {
+                    applyMarkerStateUpdate(queuedAddressId, queuedData);
+                });
+            });
+        }
+
+        function renderNotesHistory(historyDiv, notesHistory) {
+            if (!notesHistory || notesHistory.length === 0) {
+                historyDiv.innerHTML = '<em>No notes yet</em>';
+                return;
+            }
+            historyDiv.innerHTML = notesHistory
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                .map(note => `
+                    <div style="margin-bottom: 8px; padding: 5px; 
+                               background-color: white; border-left: 3px solid #4CAF50;">
+                        <div style="font-weight: bold; color: #666; font-size: 10px;">
+                            ${note.timestamp}
+                        </div>
+                        <div style="margin-top: 2px;">
+                            ${note.text}
+                        </div>
+                    </div>
+                `).join('');
+        }
+
+        function applyMarkerStateUpdate(addressId, data) {
+            const obj = markerByAddressId.get(addressId);
+            if (!obj) {
+                return;
+            }
+
+            const state = data.state || '';
+            const flag = !!data.flag;
+            const notesHistory = data.notesHistory || [];
+            const idx = obj.idx;
+
+            obj.popupContent.querySelector(`#friendly-${idx}`).checked = state === 'friendly';
+            obj.popupContent.querySelector(`#notfriendly-${idx}`).checked = state === 'notfriendly';
+            obj.popupContent.querySelector(`#visited-${idx}`).checked = state === 'visited';
+            obj.popupContent.querySelector(`#flag-${idx}`).checked = flag;
+
+            if (state === 'friendly') obj.markerEl.style.backgroundColor = '#32CD32';
+            else if (state === 'notfriendly') obj.markerEl.style.backgroundColor = '#FF4500';
+            else if (state === 'visited') obj.markerEl.style.backgroundColor = '#B39DDB';
+            else obj.markerEl.style.backgroundColor = '#FFFF00';
+
+            setMarkerShape(obj.markerEl, flag, getMarkerDisplayLabel(idx, obj.zone));
+
+            if (obj.popup && obj.popup.isOpen()) {
+                const historyDiv = obj.popupContent.querySelector(`#notes-history-${idx}`);
+                renderNotesHistory(historyDiv, notesHistory);
+            }
+
+            markerStateCache.set(addressId, {
+                state,
+                flag,
+                notesHistory
+            });
         }
 
         function getMarkerDisplayLabel(markerIndex, markerZone) {
@@ -713,6 +1269,7 @@ MAINTENANCE NOTES
                     if (obj.marker) obj.marker.remove();
                 });
                 markerObjects = [];
+                markerByAddressId.clear();
                 
                 // Check Firebase for marker version to determine if reset is needed
                 // Only reset if markers.json was actually updated (not browser/cache issues)
@@ -798,9 +1355,6 @@ MAINTENANCE NOTES
                             <input type="checkbox" id="notfriendly-${idx}"> Not Friendly
                         </label><br>
                         <label>
-                            <input type="checkbox" id="reset-${idx}"> Reset
-                        </label><br>
-                        <label>
                             <input type="checkbox" id="flag-${idx}"> American Flag
                         </label><br>
                         <label style="display: block; margin-top: 10px;">
@@ -879,20 +1433,22 @@ MAINTENANCE NOTES
                         .setPopup(popup)
                         .addTo(map);
 
-                    markerObjects.push({ 
+                    const markerObject = {
                         marker: mapMarker, 
                         idx: idx, 
                         markerEl: markerEl, 
                         popupContent: popupContent,
+                        popup: popup,
                         address: marker.address,
                         zone: markerZone,
                         isVisible: true
-                    });
+                    };
+                    markerObjects.push(markerObject);
+                    markerByAddressId.set(createAddressId(marker.address), markerObject);
 
                     const visitedBox = popupContent.querySelector(`#visited-${idx}`);
                     const friendlyBox = popupContent.querySelector(`#friendly-${idx}`);
                     const notFriendlyBox = popupContent.querySelector(`#notfriendly-${idx}`);
-                    const resetBox = popupContent.querySelector(`#reset-${idx}`);
                     const flagBox = popupContent.querySelector(`#flag-${idx}`);
                     const notesBox = popupContent.querySelector(`#notes-${idx}`);
                     const addNoteBtn = popupContent.querySelector(`#add-note-${idx}`);
@@ -982,13 +1538,12 @@ MAINTENANCE NOTES
                         }
                     }
 
-                    function handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, selectedBox, address) {
+                    function handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, flagBox, idx, selectedBox, address) {
                         isUpdating = true; // Prevent listener conflicts
                         
                         [visitedBox, friendlyBox, notFriendlyBox].forEach(box => {
                             if (box !== selectedBox) box.checked = false;
                         });
-                        resetBox.checked = false;
 
                         let state = '';
                         if (friendlyBox.checked) {
@@ -1007,6 +1562,11 @@ MAINTENANCE NOTES
                         setMarkerShape(markerEl, flagBox.checked, getMarkerDisplayLabel(idx, markerZone));
 
                         const addressId = createAddressId(address);
+                        const cachedState = markerStateCache.get(addressId) || {};
+                        if ((cachedState.state || '') === state && !!cachedState.flag === !!flagBox.checked) {
+                            setTimeout(() => { isUpdating = false; }, 0);
+                            return;
+                        }
                         console.log('Writing to Firebase - Address:', address, '-> ID:', addressId, 'State:', state);
                         db.collection('markerStates').doc(addressId).set({ 
                             state, 
@@ -1023,28 +1583,6 @@ MAINTENANCE NOTES
                         });
                     }
 
-                    // Reset logic
-                    resetBox.addEventListener('change', () => {
-                        if (resetBox.checked) {
-                            isUpdating = true; // Prevent listener conflicts
-                            visitedBox.checked = false;
-                            friendlyBox.checked = false;
-                            notFriendlyBox.checked = false;
-                            markerEl.style.backgroundColor = '#FFFF00';
-                            notesBox.value = '';
-                            setMarkerShape(markerEl, flagBox.checked, getMarkerDisplayLabel(idx, markerZone));
-                            const addressId = createAddressId(marker.address);
-                            db.collection('markerStates').doc(addressId).set({ 
-                                state: '', 
-                                flag: flagBox.checked,
-                                notesHistory: [] // Clear all notes history
-                            }, { merge: true }).then(() => {
-                                setTimeout(() => { isUpdating = false; }, 100); // Re-enable listener after delay
-                            });
-                            resetBox.checked = false; // Uncheck after reset
-                        }
-                    });
-
                     // American Flag logic (independent)
                     flagBox.addEventListener('change', () => {
                         isUpdating = true; // Prevent listener conflicts
@@ -1054,6 +1592,11 @@ MAINTENANCE NOTES
                         else if (notFriendlyBox.checked) state = 'notfriendly';
                         else if (visitedBox.checked) state = 'visited';
                         const addressId = createAddressId(marker.address);
+                        const cachedState = markerStateCache.get(addressId) || {};
+                        if ((cachedState.state || '') === state && !!cachedState.flag === !!flagBox.checked) {
+                            setTimeout(() => { isUpdating = false; }, 0);
+                            return;
+                        }
                         db.collection('markerStates').doc(addressId).set({ 
                             state, 
                             flag: flagBox.checked
@@ -1063,9 +1606,9 @@ MAINTENANCE NOTES
                     });
 
                     // Attach event listeners for exclusive selection
-                    visitedBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, visitedBox, marker.address));
-                    friendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, friendlyBox, marker.address));
-                    notFriendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, resetBox, flagBox, idx, notFriendlyBox, marker.address));
+                    visitedBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, flagBox, idx, visitedBox, marker.address));
+                    friendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, flagBox, idx, friendlyBox, marker.address));
+                    notFriendlyBox.addEventListener('change', () => handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, flagBox, idx, notFriendlyBox, marker.address));
 
                     // Initialize marker state in Firestore if it doesn't exist
                     const addressId = createAddressId(marker.address);
@@ -1170,31 +1713,54 @@ MAINTENANCE NOTES
             });
         }
 
-        // Zoom to Include Me
-        bindMapActionButton('zoom-to-include-me', () => {
-            pauseSpinning();
-            const visibleMarkers = getVisibleMarkers();
-            if (visibleMarkers.length === 0 && !currentLocationMarker) return;
-            
-            const bounds = new mapboxgl.LngLatBounds();
-            
-            // Add all marker locations to bounds
-            visibleMarkers.forEach(obj => {
-                const lngLat = obj.marker.getLngLat();
-                bounds.extend([lngLat.lng, lngLat.lat]);
-            });
-            
-            // Add current location to bounds if available
-            if (currentLocationMarker) {
-                const currentLngLat = currentLocationMarker.getLngLat();
-                bounds.extend([currentLngLat.lng, currentLngLat.lat]);
+        zoomToIncludeMeButton.addEventListener('touchstart', (event) => {
+            event.preventDefault();
+            beginZoomButtonHold(event);
+        }, { passive: false });
+
+        zoomToIncludeMeButton.addEventListener('touchend', (event) => {
+            event.preventDefault();
+            if (!zoomButtonHoldTriggered) {
+                zoomToIncludeMe();
             }
-            
-            map.fitBounds(bounds, {
-                padding: 50,
-                maxZoom: 16 // Prevent zooming in too close
-            });
+            zoomButtonTapHandled = true;
+            cancelZoomButtonHold();
+            setTimeout(() => {
+                zoomButtonTapHandled = false;
+                zoomButtonHoldTriggered = false;
+            }, 0);
+        }, { passive: false });
+
+        zoomToIncludeMeButton.addEventListener('touchcancel', cancelZoomButtonHold);
+        zoomToIncludeMeButton.addEventListener('mousedown', beginZoomButtonHold);
+        zoomToIncludeMeButton.addEventListener('mouseup', () => {
+            if (!zoomButtonHoldTriggered) {
+                zoomToIncludeMe();
+            }
+            zoomButtonTapHandled = true;
+            cancelZoomButtonHold();
+            setTimeout(() => {
+                zoomButtonTapHandled = false;
+                zoomButtonHoldTriggered = false;
+            }, 0);
         });
+        zoomToIncludeMeButton.addEventListener('mouseleave', cancelZoomButtonHold);
+        zoomToIncludeMeButton.addEventListener('click', (event) => {
+            if (zoomButtonTapHandled || zoomButtonHoldTriggered) {
+                event.preventDefault();
+                return;
+            }
+            event.preventDefault();
+            zoomToIncludeMe();
+        });
+
+        proximityStatusBadge.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            beginProximityHoldToggle(event);
+        });
+        proximityStatusBadge.addEventListener('pointerup', cancelProximityHoldToggle);
+        proximityStatusBadge.addEventListener('pointercancel', cancelProximityHoldToggle);
+        proximityStatusBadge.addEventListener('pointerleave', cancelProximityHoldToggle);
 
         // Reset all markers using module-scoped helper functions.
         bindMapActionButton('reset-all-markers', async () => {
@@ -1246,72 +1812,12 @@ MAINTENANCE NOTES
         // Update marker from Firestore
         db.collection('markerStates').onSnapshot(snapshot => {
             if (isUpdating) return; // Skip updates when user is actively clicking
-            
-            console.log('Firebase snapshot received with', snapshot.docs.length, 'documents');
-            
-            snapshot.forEach(doc => {
-                const addressId = doc.id;
-                const data = doc.data();
-                const state = data.state;
-                const flag = data.flag;
-                const notesHistory = data.notesHistory || [];
-                
-                console.log('Processing Firebase doc:', addressId, 'with state:', state);
-                
-                // Find marker object by matching address
-                const obj = markerObjects.find(o => {
-                    const markerAddressId = createAddressId(o.address);
-                    console.log('Comparing:', markerAddressId, 'with', addressId);
-                    return markerAddressId === addressId;
-                });
-                if (!obj) {
-                    console.log('No marker object found for address:', addressId);
-                    return;
-                }
-                
-                console.log('Updating marker for address:', addressId);
-                
-                // Always restore states from Firebase (real-time sync)
-                const idx = obj.idx;
-                obj.popupContent.querySelector(`#friendly-${idx}`).checked = state === 'friendly';
-                obj.popupContent.querySelector(`#notfriendly-${idx}`).checked = state === 'notfriendly';
-                obj.popupContent.querySelector(`#visited-${idx}`).checked = state === 'visited';
-                
-                // Update marker color based on Firebase state
-                if (state === 'friendly') obj.markerEl.style.backgroundColor = '#32CD32';
-                else if (state === 'notfriendly') obj.markerEl.style.backgroundColor = '#FF4500';
-                else if (state === 'visited') obj.markerEl.style.backgroundColor = '#B39DDB';
-                else obj.markerEl.style.backgroundColor = '#FFFF00'; // Default yellow
-                
-                // Always update flag status and notes (these are preserved)
-                obj.popupContent.querySelector(`#flag-${idx}`).checked = !!flag;
-                obj.popupContent.querySelector(`#reset-${idx}`).checked = false;
-                
-                // Display notes history
-                const historyDiv = obj.popupContent.querySelector(`#notes-history-${idx}`);
-                if (!notesHistory || notesHistory.length === 0) {
-                    historyDiv.innerHTML = '<em>No notes yet</em>';
-                } else {
-                    historyDiv.innerHTML = notesHistory
-                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                        .map(note => `
-                            <div style="margin-bottom: 8px; padding: 5px; 
-                                       background-color: white; border-left: 3px solid #4CAF50;">
-                                <div style="font-weight: bold; color: #666; font-size: 10px;">
-                                    ${note.timestamp}
-                                </div>
-                                <div style="margin-top: 2px;">
-                                    ${note.text}
-                                </div>
-                            </div>
-                        `).join('');
-                }
-                
-                // Update marker shape based on flag (always preserve flag)
-                if (flag) setMarkerShape(obj.markerEl, true, getMarkerDisplayLabel(idx, obj.zone));
-                else setMarkerShape(obj.markerEl, false, getMarkerDisplayLabel(idx, obj.zone));
+
+            snapshot.docChanges().forEach(change => {
+                const addressId = change.doc.id;
+                const data = change.type === 'removed' ? {} : change.doc.data();
+                queueMarkerStateUpdate(addressId, data);
             });
-            console.log('Firestore update received', snapshot.docs.map(doc => doc.data()));
         });
         
         } // End of initializeMap function

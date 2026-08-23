@@ -1,0 +1,158 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    background: linear-gradient(160deg, #f3f8ff 0%, #f7fff4 100%);
+    color: #17212b;
+}
+
+.app-shell {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 16px 36px;
+}
+
+h1 {
+    margin: 0 0 8px;
+}
+
+.subtitle {
+    margin-top: 0;
+    color: #445464;
+}
+
+.panel {
+    background: #ffffff;
+    border: 1px solid #d7e2ec;
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 14px;
+}
+
+.panel h2 {
+    margin-top: 0;
+    font-size: 18px;
+}
+
+.mode-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.mode-row label {
+    width: auto;
+    font-weight: 600;
+}
+
+.mode-row select {
+    border: 1px solid #afc1d3;
+    border-radius: 7px;
+    padding: 8px;
+    font: inherit;
+    background: #fcfdff;
+}
+
+.mode-hint {
+    font-size: 13px;
+    color: #445464;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+label {
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+input[type="number"],
+textarea {
+    width: 100%;
+    border: 1px solid #afc1d3;
+    border-radius: 7px;
+    padding: 8px;
+    font: inherit;
+    background: #fcfdff;
+}
+
+textarea {
+    resize: vertical;
+}
+
+.button-row {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+button {
+    border: 0;
+    background: #1c6fe8;
+    color: #fff;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:disabled {
+    background: #8aa6cc;
+    cursor: not-allowed;
+}
+
+.checkbox-row {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.status-list {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+}
+
+.status-list div {
+    background: #f8fbff;
+    border: 1px solid #dce8f3;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.status-list dt {
+    font-weight: 700;
+    font-size: 12px;
+    color: #4b5a68;
+}
+
+.status-list dd {
+    margin: 4px 0 0;
+    font-weight: 600;
+}
+
+.log {
+    margin: 0;
+    min-height: 140px;
+    max-height: 320px;
+    overflow: auto;
+    background: #0f1720;
+    color: #d9f4d0;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #182b3d;
+    white-space: pre-wrap;
+}
