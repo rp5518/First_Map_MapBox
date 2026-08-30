@@ -27,3 +27,7 @@ Thumbs.db
 
 # Local secrets/config
 local-config.js
+
+# Firebase local state
+.firebase/
+firebase-debug.log
