@@ -960,7 +960,7 @@ MAINTENANCE NOTES
             const numericMatch = raw.match(/^#?\s*(\d+)$/);
             if (numericMatch) return `Zone #${numericMatch[1]}`;
 
-            const zoneMatch = raw.match(/^zone\s*#?\s*(\d+)$/i);
+            const zoneMatch = raw.match(/^zone[\s_#-]*(\d+)$/i);
             if (zoneMatch) return `Zone #${zoneMatch[1]}`;
 
             return raw;
@@ -1140,6 +1140,15 @@ MAINTENANCE NOTES
                 setMainMapButtonsVisible(true);
             }
         }
+
+        function showAllZonesFromHistory() {
+            if (!zoneFilteringEnabled || zoneSelect.value === 'all') return;
+
+            zoneSelect.value = 'all';
+            lockZoneSelection('all');
+        }
+
+        window.addEventListener('popstate', showAllZonesFromHistory);
 
         function initializeZoneFilter(markers) {
             const zones = new Set();
@@ -1645,6 +1654,9 @@ MAINTENANCE NOTES
                         if (!zoneSelect.value) {
                             applyZoneFilter('', false);
                             return;
+                        }
+                        if (zoneSelect.value !== 'all') {
+                            history.pushState({ zone: zoneSelect.value }, '', window.location.href);
                         }
                         lockZoneSelection(zoneSelect.value);
                     });
