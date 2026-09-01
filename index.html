@@ -19,7 +19,8 @@ CORE USER FLOW
 DATA SOURCES
 - markers.json (same folder): Marker payload with name, address, lng, lat, and optional
   age, party, and zone values.
-- Firestore collection markerStates: Per-address canvassing state, flag, and notes.
+- Firestore collection markerStates: Per-address canvassing state, flag, notes, and manual 
+  update location/distance metadata (manualUpdateDistanceFeet, manualUpdateLocation).
 - Firestore doc mapSettings/markerVersion: Version/hash tracking for marker set changes.
 
 MAJOR FEATURES
@@ -1547,6 +1548,24 @@ MAINTENANCE NOTES
                         }
                     }
 
+                    function getManualLocationData() {
+                        if (!proximityCurrentPosition || !proximityCurrentPosition.coords) {
+                            return {};
+                        }
+                        const userLat = proximityCurrentPosition.coords.latitude;
+                        const userLng = proximityCurrentPosition.coords.longitude;
+                        const distFeet = haversineFeet(userLat, userLng, marker.lat, marker.lng);
+                        return {
+                            manualUpdateDistanceFeet: Math.round(distFeet * 10) / 10,
+                            manualUpdateLocation: {
+                                lat: userLat,
+                                lng: userLng,
+                                accuracyFeet: Math.round(metersToFeet(proximityCurrentPosition.coords.accuracy) * 10) / 10,
+                                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                            }
+                        };
+                    }
+
                     function handleExclusiveCheck(markerEl, visitedBox, friendlyBox, notFriendlyBox, flagBox, idx, selectedBox, address) {
                         isUpdating = true; // Prevent listener conflicts
                         
@@ -1577,10 +1596,12 @@ MAINTENANCE NOTES
                             return;
                         }
                         console.log('Writing to Firebase - Address:', address, '-> ID:', addressId, 'State:', state);
-                        db.collection('markerStates').doc(addressId).set({ 
+                        const updateData = { 
                             state, 
-                            flag: flagBox.checked
-                        }, { merge: true }).then(() => {
+                            flag: flagBox.checked,
+                            ...getManualLocationData()
+                        };
+                        db.collection('markerStates').doc(addressId).set(updateData, { merge: true }).then(() => {
                             console.log('Successfully wrote to Firebase for:', addressId);
                             // Immediately update the visual state to ensure consistency
                             if (state === 'friendly') markerEl.style.backgroundColor = '#32CD32';
@@ -1606,10 +1627,12 @@ MAINTENANCE NOTES
                             setTimeout(() => { isUpdating = false; }, 0);
                             return;
                         }
-                        db.collection('markerStates').doc(addressId).set({ 
+                        const updateData = { 
                             state, 
-                            flag: flagBox.checked
-                        }, { merge: true }).then(() => {
+                            flag: flagBox.checked,
+                            ...getManualLocationData()
+                        };
+                        db.collection('markerStates').doc(addressId).set(updateData, { merge: true }).then(() => {
                             setTimeout(() => { isUpdating = false; }, 100); // Re-enable listener after delay
                         });
                     });
