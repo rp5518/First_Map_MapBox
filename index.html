@@ -174,7 +174,7 @@ MAINTENANCE NOTES
             align-items: center;
             gap: 8px;
             padding: 7px 10px;
-            border-radius: 999px;
+            border-radius: 16px;
             background: rgba(17, 24, 39, 0.88);
             color: #e5e7eb;
             font-size: 12px;
@@ -184,6 +184,26 @@ MAINTENANCE NOTES
             cursor: pointer;
             touch-action: none;
             -webkit-tap-highlight-color: transparent;
+            max-width: min(260px, calc(100vw - 24px));
+        }
+        #proximity-status-badge.error {
+            background: rgba(127, 29, 29, 0.92);
+        }
+        .proximity-badge-lines {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            min-width: 0;
+        }
+        .proximity-badge-detail {
+            font-size: 10px;
+            font-weight: 400;
+            color: #d1d5db;
+            white-space: normal;
+            line-height: 1.25;
+        }
+        #proximity-status-badge.error .proximity-badge-detail {
+            color: #fecaca;
         }
         .status-dot {
             width: 10px;
@@ -346,7 +366,10 @@ MAINTENANCE NOTES
         </div>
         <div id="proximity-status-badge" class="hidden" aria-live="polite" title="Hold for 3 seconds to toggle Auto Select">
             <span class="status-dot" aria-hidden="true"></span>
-            <span id="proximity-badge-text">Auto Select Off</span>
+            <span class="proximity-badge-lines">
+                <span id="proximity-badge-text">Auto Select Off</span>
+                <span id="proximity-badge-detail" class="proximity-badge-detail"></span>
+            </span>
         </div>
         <div id="map"></div>
     </div>
@@ -531,6 +554,7 @@ MAINTENANCE NOTES
         const autoSelectCooldownMsInput = document.getElementById('auto-select-cooldown-ms');
         const proximityStatusBadge = document.getElementById('proximity-status-badge');
         const proximityBadgeText = document.getElementById('proximity-badge-text');
+        const proximityBadgeDetail = document.getElementById('proximity-badge-detail');
 
         let proximityTrackingEnabled = false;
         let proximityLastEvalPosition = null;
@@ -573,12 +597,11 @@ MAINTENANCE NOTES
             input.addEventListener('change', refreshProximityEvaluation);
         });
 
-        function setProximityStatus(active, message) {
+        function setProximityStatus(active, message, isError) {
             proximityStatusBadge.classList.toggle('active', !!active);
+            proximityStatusBadge.classList.toggle('error', !!isError);
             proximityBadgeText.textContent = active ? 'Auto Select On' : 'Auto Select Off';
-            if (message) {
-                proximityStatusBadge.title = message;
-            }
+            proximityBadgeDetail.textContent = message || '';
         }
 
         function setProximityControlsVisible(visible) {
@@ -656,7 +679,8 @@ MAINTENANCE NOTES
                 transaction.set(markerStateRef, {
                     state: 'visited',
                     updatedBy: 'proximity',
-                    proximityTimestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    proximityTimestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
                 return { changed: true };
@@ -664,11 +688,11 @@ MAINTENANCE NOTES
 
             if (result.changed) {
                 proximityCooldownMsById.set(addressId, Date.now());
-                setProximityStatus(true, `Auto-marked: ${Math.round(distanceFeet)} ft from target`);
+                setProximityStatus(true, `Auto-marked: ${Math.round(distanceFeet)} ft from target`, false);
                 await playProximityBeep();
                 console.log('Auto-marked marker as visited:', targetObj.address);
             } else {
-                setProximityStatus(true, `Skipped (already ${result.state || 'set'})`);
+                setProximityStatus(true, `Skipped (already ${result.state || 'set'})`, false);
             }
         }
 
@@ -746,7 +770,8 @@ MAINTENANCE NOTES
 
             tryAutoMarkVisited(nearest.obj, nearest.distanceFeet).catch(error => {
                 console.error('Auto-mark transaction error:', error);
-                setProximityStatus(true, 'Auto-mark failed, see console');
+                const reason = error && error.code ? error.code : (error && error.message) || 'unknown error';
+                setProximityStatus(true, `Auto-mark failed: ${reason}`, true);
             });
         }
 
@@ -919,7 +944,7 @@ MAINTENANCE NOTES
                             alert('Unable to retrieve your location. Please enable location services.');
                             locationAlertShown = true;
                         }
-                        setProximityStatus(false, 'Location unavailable');
+                        setProximityStatus(false, `Location unavailable: ${error.message || error.code}`, true);
                     },
                     {
                         enableHighAccuracy: true,
@@ -1299,7 +1324,8 @@ MAINTENANCE NOTES
                         markers.forEach((marker, idx) => {
                             const addressId = createAddressId(marker.address);
                             db.collection('markerStates').doc(addressId).set({
-                                state: '' // Clear canvassing state
+                                state: '', // Clear canvassing state
+                                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                             }, { merge: true }); // Preserve flag and notes
                         });
                     } else {
@@ -1493,7 +1519,8 @@ MAINTENANCE NOTES
                             
                             // Update Firebase with new note
                             db.collection('markerStates').doc(addressId).update({
-                                notesHistory: updatedNotes
+                                notesHistory: updatedNotes,
+                                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                             }).then(() => {
                                 // Immediately update the display with the new notes
                                 displayNotesHistory(idx, updatedNotes);
@@ -1599,6 +1626,7 @@ MAINTENANCE NOTES
                         const updateData = { 
                             state, 
                             flag: flagBox.checked,
+                            lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
                             ...getManualLocationData()
                         };
                         db.collection('markerStates').doc(addressId).set(updateData, { merge: true }).then(() => {
@@ -1630,6 +1658,7 @@ MAINTENANCE NOTES
                         const updateData = { 
                             state, 
                             flag: flagBox.checked,
+                            lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
                             ...getManualLocationData()
                         };
                         db.collection('markerStates').doc(addressId).set(updateData, { merge: true }).then(() => {
@@ -1649,7 +1678,8 @@ MAINTENANCE NOTES
                             db.collection('markerStates').doc(addressId).set({ 
                                 state: '', 
                                 flag: false, 
-                                notesHistory: []
+                                notesHistory: [],
+                                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                             });
                         }
                     });
