@@ -11,14 +11,15 @@ CORE USER FLOW
 3) Each marker is drawn on the map with a label that reflects either the overall
    sequence or the active zone sequence, depending on the current view.
 4) Zone selection filters the visible markers and re-centers the map around them.
-5) Marker popups allow the user to record canvassing outcomes, flags, and notes.
+5) Marker popups show each household member's name, age, party, and apartment/unit
+    when present, and allow the user to record canvassing outcomes, flags, and notes.
 6) Firestore listeners keep marker colors, shapes, and notes synchronized for all clients.
 7) Admin-only bulk reset actions are available on desktop-class devices and can target
    all markers or only the currently selected zone.
 
 DATA SOURCES
 - markers.json (same folder): Marker payload with name, address, lng, lat, and optional
-  age, party, and zone values.
+    age, party, unit/apartment, and zone values.
 - Firestore collection markerStates: Per-address canvassing state, flag, notes, and manual 
   update location/distance metadata (manualUpdateDistanceFeet, manualUpdateLocation).
 - Firestore doc mapSettings/markerVersion: Version/hash tracking for marker set changes.
@@ -1361,6 +1362,9 @@ MAINTENANCE NOTES
                         : ((marker.Party !== undefined && marker.Party !== null)
                             ? String(marker.Party).split(',').map(value => value.trim())
                             : []);
+                    const units = (marker.unit !== undefined && marker.unit !== null)
+                        ? String(marker.unit).split(',').map(value => value.trim())
+                        : [];
                     
                     // Create name pairs (first + last)
                     let nameLines = '';
@@ -1370,9 +1374,11 @@ MAINTENANCE NOTES
                         const lastName = lastNames[i] || '';
                         const ageValue = ages[i] || '';
                         const partyValue = parties[i] || '';
+                        const unitValue = units[i] || '';
                         const suffixParts = [];
                         if (ageValue) suffixParts.push(ageValue);
                         if (partyValue) suffixParts.push(partyValue);
+                        if (unitValue) suffixParts.push(`Apt ${unitValue}`);
                         const personSuffix = suffixParts.length ? ` ${suffixParts.join(' ')}` : '';
                         nameLines += `<strong>${firstName} ${lastName}${personSuffix}</strong><br>`;
                     }
