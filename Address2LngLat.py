@@ -11,24 +11,25 @@ What it does:
     available.
 - Reuses coordinate values from Lng_Lat_Hash.json when that cache already has
     a matching address, and otherwise falls back to the Mapbox Geocoding API.
-- Preserves first name, last name, optional age, optional party, and optional
-    zone values as comma-separated lists so the popup on the map can show
-    everyone at the same address.
+- Preserves first name, last name, optional age, optional party, optional unit/apartment,
+    and optional zone values as comma-separated lists so the popup on the map can
+    show everyone at the same address.
 - Writes the final marker list to markers.json next to this script, including
-    party when a Party column exists in the input file.
+    party when a Party column exists in the input file and unit/apartment values
+    when a PrimaryUnitNumber-style column exists.
 - Prints a progress update every five seconds and reports how many external
     coordinate lookups were required at the end of the run.
 
 Expected input columns:
 - FullStreetAddress and Zip, unless CompleteAddress already exists.
 - FirstName and LastName for popup labels.
-- Optional Age, Party, lng, and lat columns.
+- Optional Age, Party, PrimaryUnitNumber, lng, and lat columns.
 - Optional Zone column (e.g. "Zone #1"). All rows in a group must share
     the same zone value; the first non-blank value in the group is used.
 
 Output:
 - markers.json containing one object per unique address with first, last,
-    address, lng, lat, and optional age, party, and zone fields.
+    address, lng, lat, and optional age, party, unit, and zone fields.
 """
 
 # %% Address to LngLat using Mapbox Geocoding API
@@ -147,6 +148,7 @@ lat_column = find_column_name(df.columns, ['lat', 'latitude'])
 age_column = find_column_name(df.columns, ['age'])
 party_column = find_column_name(df.columns, ['party'])
 zone_column = find_column_name(df.columns, ['zone', 'zone column', 'zone_number', 'zonenumber'])
+unit_column = find_column_name(df.columns, ['primaryunitnumber', 'unitnumber', 'unit', 'apt', 'apartment', 'aptnumber'])
 
 # Geocode and collect results
 results = []
@@ -154,6 +156,7 @@ has_existing_coordinates = bool(lng_column and lat_column)
 has_age_column = bool(age_column)
 has_party_column = bool(party_column)
 has_zone_column = bool(zone_column)
+has_unit_column = bool(unit_column)
 
 if has_existing_coordinates:
     df.rename(columns={lng_column: 'lng', lat_column: 'lat'}, inplace=True)
@@ -163,12 +166,15 @@ if has_party_column:
     df.rename(columns={party_column: 'Party'}, inplace=True)
 if has_zone_column:
     df.rename(columns={zone_column: 'Zone'}, inplace=True)
+if has_unit_column:
+    df.rename(columns={unit_column: 'Unit'}, inplace=True)
 
 print(
     'Columns detected  ->  '
     f'age: {has_age_column} ({age_column}), '
     f'party: {has_party_column} ({party_column}), '
     f'zone: {has_zone_column} ({zone_column}), '
+    f'unit: {has_unit_column} ({unit_column}), '
     f'existing coords: {has_existing_coordinates} ({lng_column}, {lat_column})'
 )
 
@@ -208,6 +214,15 @@ for index, (complete_address, address_group) in enumerate(address_groups, start=
                 normalized = value.item() if hasattr(value, 'item') else value
                 party_values.append(str(normalized).strip())
 
+    unit_values = []
+    if has_unit_column:
+        for value in address_group['Unit'].tolist():
+            if pd.isna(value):
+                unit_values.append('')
+            else:
+                normalized = value.item() if hasattr(value, 'item') else value
+                unit_values.append(str(normalized).strip().replace('.0', ''))
+
     zone_value = ''
     if has_zone_column:
         non_blank = address_group['Zone'].dropna().astype(str).str.strip()
@@ -246,6 +261,8 @@ for index, (complete_address, address_group) in enumerate(address_groups, start=
             marker_row['age'] = ', '.join(age_values)
         if has_party_column:
             marker_row['party'] = ', '.join(party_values)
+        if has_unit_column:
+            marker_row['unit'] = ', '.join(unit_values)
         if has_zone_column and zone_value:
             marker_row['zone'] = zone_value
 
