@@ -571,9 +571,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_1"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -631,8 +628,16 @@
                             33.30377
                         ],
                         [
-                            -112.092436,
-                            33.305117
+                            -112.092437,
+                            33.30433
+                        ],
+                        [
+                            -112.091965,
+                            33.304347
+                        ],
+                        [
+                            -112.091979,
+                            33.305115
                         ],
                         [
                             -112.100481,
@@ -641,30 +646,33 @@
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_1"
+            },
             "bbox": [
                 -112.100481,
                 33.302301,
-                -112.092159,
-                33.305117
+                -112.091965,
+                33.305115
             ]
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_2",
-                "fill": "rgba(58, 130, 47, 1)"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
                     [
                         [
-                            -112.092435,
-                            33.305104
+                            -112.091986,
+                            33.305115
                         ],
                         [
-                            -112.092408,
-                            33.304386
+                            -112.091965,
+                            33.304344
+                        ],
+                        [
+                            -112.092433,
+                            33.30433
                         ],
                         [
                             -112.092426,
@@ -751,14 +759,18 @@
                             33.305112
                         ],
                         [
-                            -112.092435,
-                            33.305104
+                            -112.091986,
+                            33.305115
                         ]
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_2",
+                "fill": "rgba(58, 130, 47, 1)"
+            },
             "bbox": [
-                -112.092435,
+                -112.092433,
                 33.302312,
                 -112.080824,
                 33.308407
@@ -766,10 +778,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "fill": "rgba(130, 129, 47, 1)",
-                "name": "Zone_3"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -803,8 +811,8 @@
                             33.29819
                         ],
                         [
-                            -112.096486,
-                            33.298101
+                            -112.096524,
+                            33.298075
                         ],
                         [
                             -112.096152,
@@ -869,19 +877,19 @@
                     ]
                 ]
             },
+            "properties": {
+                "fill": "rgba(130, 129, 47, 1)",
+                "name": "Zone_3"
+            },
             "bbox": [
                 -112.100497,
-                33.298101,
+                33.298075,
                 -112.095032,
                 33.303077
             ]
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_4",
-                "fill": "rgba(130, 47, 67, 1)"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -957,6 +965,10 @@
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_4",
+                "fill": "rgba(130, 47, 67, 1)"
+            },
             "bbox": [
                 -112.100503,
                 33.290554,
@@ -966,9 +978,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_5"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -1032,6 +1041,9 @@
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_5"
+            },
             "bbox": [
                 -112.097377,
                 33.290582,
@@ -1041,10 +1053,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_6",
-                "fill": "rgba(53, 130, 47, 1)"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -1200,6 +1208,10 @@
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_6",
+                "fill": "rgba(53, 130, 47, 1)"
+            },
             "bbox": [
                 -112.09748,
                 33.293874,
@@ -1209,10 +1221,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_7",
-                "fill": "rgba(130, 47, 127, 1)"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -1328,6 +1336,10 @@
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_7",
+                "fill": "rgba(130, 47, 127, 1)"
+            },
             "bbox": [
                 -112.093526,
                 33.292225,
@@ -1337,10 +1349,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_8",
-                "fill": "rgba(130, 117, 47, 1)"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -1476,6 +1484,10 @@
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_8",
+                "fill": "rgba(130, 117, 47, 1)"
+            },
             "bbox": [
                 -112.094534,
                 33.292383,
@@ -1485,10 +1497,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_9",
-                "fill": "rgba(130, 47, 47, 1)"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -1560,6 +1568,10 @@
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_9",
+                "fill": "rgba(130, 47, 47, 1)"
+            },
             "bbox": [
                 -112.085326,
                 33.292469,
@@ -1569,10 +1581,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_10",
-                "fill": "rgba(130, 47, 47, 1)"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -1632,6 +1640,10 @@
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_10",
+                "fill": "rgba(130, 47, 47, 1)"
+            },
             "bbox": [
                 -112.091552,
                 33.297629,
@@ -1641,10 +1653,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_11",
-                "fill": "#312E81"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -1736,6 +1744,10 @@
                     ]
                 ]
             },
+            "properties": {
+                "name": "Zone_11",
+                "fill": "#312E81"
+            },
             "bbox": [
                 -112.085884,
                 33.297955,
@@ -1745,10 +1757,6 @@
         },
         {
             "type": "Feature",
-            "properties": {
-                "name": "Zone_12",
-                "fill": "rgba(47, 130, 78, 1)"
-            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -1839,6 +1847,10 @@
                         ]
                     ]
                 ]
+            },
+            "properties": {
+                "name": "Zone_12",
+                "fill": "rgba(47, 130, 78, 1)"
             },
             "bbox": [
                 -112.081732,
