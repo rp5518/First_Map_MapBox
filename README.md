@@ -2,11 +2,11 @@
 
 ## Overview
 
-This repository contains four related workflows that start from a GOP Data Center Excel export and turn it into canvasser zones, walk lists, driving-distance lists, radial-distance lists, and map data.
+This repository contains five related workflows that start from a GOP Data Center Excel export and turn it into precinct walk lists, canvasser zones, driving-distance lists, radial-distance lists, and map data.
 
 Workflow priority in this repository:
-1. Canvasser zone assignment (`Canvasser_Zones_Driving_Distance.xlsx`)
-2. Precinct walk list generation (`make_walk_lists_polygons.py`) - primary and most efficient method
+1. Precinct walk list generation (`make_walk_lists_polygons.py`) - primary and most efficient method
+2. Canvasser zone assignment (`Canvasser_Zones_Driving_Distance.xlsx`)
 3. Legacy walk list generation (`make_walk_lists.py`)
 4. Driving distance sort (`Driving_Distance_Sort.py`)
 5. Radial distance sort (`Radial_Distance_Sort.py`)
