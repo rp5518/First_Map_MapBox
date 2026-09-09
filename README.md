@@ -6,9 +6,10 @@ This repository contains four related workflows that start from a GOP Data Cente
 
 Workflow priority in this repository:
 1. Canvasser zone assignment (`Canvasser_Zones_Driving_Distance.xlsx`)
-2. Walk list generation (`make_walk_lists.py`)
-3. Driving distance sort (`Driving_Distance_Sort.py`)
-4. Radial distance sort (`Radial_Distance_Sort.py`)
+2. Precinct walk list generation (`make_walk_lists_polygons.py`) - primary and most efficient method
+3. Legacy walk list generation (`make_walk_lists.py`)
+4. Driving distance sort (`Driving_Distance_Sort.py`)
+5. Radial distance sort (`Radial_Distance_Sort.py`)
 
 ## Common Input Source
 
@@ -59,13 +60,43 @@ The script:
 - `Lng_Lat_Hash.json` for geocoding cache
 - `distance_hash.json` for driving-distance cache
 
-## Workflow 2: Walk List Generation (Second Most Important)
+## Workflow 2: Precinct Walk List Generation (Primary and Most Efficient)
 
 ### Script
-- [make_walk_lists.py](../make_walk_lists.py)
+- [../make_walk_lists_polygons.py](../make_walk_lists_polygons.py)
 
 ### What it does
-This is the starting workflow. It takes the GOP Data Center export and turns it into optimized walk lists.
+This is the preferred workflow for generating precinct walk lists. It is the primary and most efficient method in this repository because it uses polygon-based precinct logic to build walk lists from geographic boundaries rather than relying on less precise address-only or generalized routing assumptions.
+
+The script:
+- reads the GOP Data Center export
+- normalizes address data into the needed fields
+- applies precinct polygon logic to assign voter records to the correct geographic areas
+- groups records into efficient walk-list batches
+- prioritizes route efficiency and precinct accuracy
+- produces the best output for canvassing and field assignment work
+
+This is the recommended script for production precinct walk list creation. The earlier or legacy walk-list workflow remains available for comparison or specialized situations, but `make_walk_lists_polygons.py` should be treated as the default and preferred option.
+
+### Expected input
+The source file can be Excel or CSV and should include the common columns listed above. `FirstName` and `LastName` are required for the final output. `Age`, `Party`, and `Distance` are optional.
+
+### Output location
+Walk list outputs are written to:
+- `C:\Users\wjg\Python_Stuff\Completed_Walk_Lists`
+
+### Output files
+The workflow creates:
+- individual walk-list Excel files in `Completed_Walk_Lists`
+- `Summary_File.txt` in `Completed_Walk_Lists`
+
+## Workflow 3: Legacy Walk List Generation
+
+### Script
+- [../make_walk_lists.py](../make_walk_lists.py)
+
+### What it does
+This is the older walk-list workflow. It is still useful for comparison and legacy processing, but it is not the primary recommended workflow for precinct walk list creation.
 
 The script:
 - normalizes address data into `CompleteAddress`
@@ -87,7 +118,7 @@ The workflow creates:
 - individual walk-list Excel files in `Completed_Walk_Lists`
 - `Summary_File.txt` in `Completed_Walk_Lists`
 
-## Workflow 3: Driving Distance Sort (Third Most Important)
+## Workflow 4: Driving Distance Sort (Fourth Most Important)
 
 ### Script
 - [Driving_Distance_Sort.py](Driving_Distance_Sort.py)
