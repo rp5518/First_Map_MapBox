@@ -115,6 +115,11 @@ MAINTENANCE NOTES
         #zoom-to-include-me {
             top: 60px;
         }
+        /* When the zone filter panel is visible (All Zones view), push the
+           button just below the panel so it doesn't overlap the selector. */
+        #zone-filter-panel:not(.hidden) ~ #zoom-to-include-me {
+            top: 100px;
+        }
         #reset-all-markers {
             top: 140px;
             background-color: #fff7e6;
