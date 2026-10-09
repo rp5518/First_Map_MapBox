@@ -1286,7 +1286,7 @@ MAINTENANCE NOTES
         // Load markers from markers.json and add to map with numeric labels
         console.log('Starting to fetch markers.json...');
         console.log('Map object:', map);
-        fetch('markers.json')
+        fetch('markers.json', { cache: 'no-store' })
             .then(response => {
                 console.log('Fetch response status:', response.status);
                 if (!response.ok) {
